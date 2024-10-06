@@ -1,12 +1,16 @@
 import { DocumentData, DocumentReference } from "firebase/firestore"
 import { IThing } from "./thing.model";
 
-export type ITypeStorage = 'cabinet' | 'box';
-export type IType = ITypeStorage | 'drawer';
-export type IMaterial = 'plastic' | 'wood' | 'metal' | 'cardboard';
+export type ITypeContainer = 'cabinet' | 'box';
+export type ITypeStorage = 'drawer' | 'box';
+export type IType = 'cabinet' | 'box' | 'drawer';
+export type IBoxMaterial = 'plastic' | 'cardboard';
+export type ICabinetMaterial = 'plastic' | 'wood' | 'metal';
+export type IMaterial = IBoxMaterial & ICabinetMaterial;
 export type ITypeMaterial = 'cabinet-plastic' | 'cabinet-wood' | 'cabinet-metal' | 'box-plastic' | 'box-cardboard';
 
-export interface IStorageForm {
+// Forms
+export interface ICreateStorageForm {
     name: string;
     description: string;
     typeMaterial: string;
@@ -23,10 +27,10 @@ export interface IStorageForm {
     }
 }
 
-export interface IBoxUpdateForm {
+export interface IUpdateBoxForm {
     name: string;
     description: string;
-    material: IMaterial;
+    material: IBoxMaterial;
     x_units: number; 
     y_units: number; 
     parent: string;
@@ -34,38 +38,17 @@ export interface IBoxUpdateForm {
     boxLid: boolean;
 }
 
-export interface ICabinetUpdateForm {
+export interface IUpdateCabinetForm {
     name: string
     description: string
-    material: IMaterial  
+    material: ICabinetMaterial  
     drawers: IDrawer[]
 }
 
-interface ILocal  {
-    name: string,
-    type: IType,
-    description: string,
-    material: IMaterial,
-    x_units: number,
-    y_units: number 
-}
+// Storage Interfaces
 
-export interface ICreateCabinet extends ILocal {
-    drawers: ILocalDrawer[]
-}
-
-export interface ILocalBox extends ILocal {
-    parent?: string,
-    depth: number;
-    lid: boolean;
-}
-
-export interface ILocalDrawer {
-    name: string,
-    x_units: number,
-    y_units: number 
-    x_pos: number; 
-    y_pos: number;
+interface ILocalStorage extends IDBStorage {
+    id: string;
 }
 
 interface IDBStorage {
@@ -78,47 +61,21 @@ interface IDBStorage {
     y_units: number; 
 }
 
-interface IStorage extends IDBStorage {
-    id: string;
-}
-
-export interface IDBBox extends IDBStorage {
+export interface IBox extends ILocalStorage {
     depth: number; 
     lid: boolean;
-    material: IMaterial,
-    parent: DocumentReference<DocumentData, DocumentData> | null,
-    things?: DocumentReference<DocumentData, DocumentData>[],
-    storages?: DocumentReference<DocumentData, DocumentData>[]
-}
-
-export interface IDBCabinet extends IDBStorage {
-    material: IMaterial,
-    drawers?: DocumentReference<DocumentData, DocumentData>[]
-}
-
-export interface IDBDrawer extends IDBStorage {
-    x_pos: number; 
-    y_pos: number;
-    parent?: DocumentReference<DocumentData, DocumentData> | null,
-    things?: DocumentReference<DocumentData, DocumentData>[],
-    storages?: DocumentReference<DocumentData, DocumentData>[],
-}
-
-export interface IBox extends IStorage {
-    depth: number; 
-    lid: boolean;
-    material: IMaterial,
+    material: IBoxMaterial,
     parent?: IBox | ICabinet | null,
     things?: IThing[],
     storages?: IBox | null,
 }
 
-export interface ICabinet extends IStorage {
-    material: IMaterial,
+export interface ICabinet extends ILocalStorage {
+    material: ICabinetMaterial,
     drawers: IDrawer[]
 }
 
-export interface IDrawer extends IStorage {
+export interface IDrawer extends ILocalStorage {
     x_pos: number; 
     y_pos: number;
     parent: ICabinet,
@@ -126,11 +83,81 @@ export interface IDrawer extends IStorage {
     storages?: IBox | null
 }
 
-export interface IUpdateBox {
+export type IContainer = IBox & ICabinet;
+export type IStorageThings = IBox & IDrawer;
+export type IStorage = IBox & ICabinet & IDrawer;
+
+
+// Create Local Storage
+
+interface ICreateStorage  {
+    name: string,
+    type: IType,
+    description: string,
+    x_units: number,
+    y_units: number 
+}
+
+export interface ICreateCabinet extends ICreateStorage {
+    material: ICabinetMaterial,
+    drawers: ICreateDrawer[]
+}
+
+export interface ICreateBox extends ICreateStorage {
+    material: IBoxMaterial
+    depth: number
+    lid: boolean
+    parent?: string
+}
+
+export interface ICreateDrawer extends ICreateStorage {
+    x_pos: number
+    y_pos: number
+}
+
+// Create DB Storage
+
+interface IDBCreateStorage {
+    name: string,
+    name_lower: string,
+    name_number: string,
+    type: IType;
+    x_units: number; 
+    y_units: number; 
+}
+
+export interface IDBCreateBox extends IDBCreateStorage {
+    description: string,
+    material: IBoxMaterial,
+    depth: number; 
+    lid: boolean;
+    parent?: DocumentReference<DocumentData, DocumentData> | null,
+    things?: DocumentReference<DocumentData, DocumentData>[],
+    storages?: DocumentReference<DocumentData, DocumentData>[]
+}
+
+export interface IDBCreateCabinet extends IDBCreateStorage {
+    description: string,
+    material: ICabinetMaterial,
+    drawers?: DocumentReference<DocumentData, DocumentData>[]
+}
+
+export interface IDBCreateDrawer extends IDBCreateStorage {
+    x_pos: number; 
+    y_pos: number;
+    parent: DocumentReference<DocumentData, DocumentData>,
+}
+
+// Update Local Storage
+
+interface IUpdateStorage  {
     id: string
     name: string
     description: string
-    material: IMaterial
+}
+
+export interface IUpdateBox extends IUpdateStorage {
+    material: IBoxMaterial
     x_units: number
     y_units: number 
     depth: number
@@ -139,27 +166,25 @@ export interface IUpdateBox {
     oldParentId?: string
 }
 
-export interface IUpdateCabinet {
-    id: string
-    name: string
-    description: string
-    material: IMaterial
+export interface IUpdateCabinet extends IUpdateStorage {
+    material: ICabinetMaterial
     drawers: IDrawer[]
 }
 
-export interface IUpdateDrawer {
-    id: string
-    name: string
-    description: string
-}
+export interface IUpdateDrawer extends IUpdateStorage {}
 
-export interface IDBUpdateBox {
+// Update DB Storage
+
+export interface IDBUpdateStorage {
     [key: string]: any;
     name: string
     name_lower: string
     name_number: string
     description: string
-    material: IMaterial
+}
+
+export interface IDBUpdateBox extends IDBUpdateStorage {
+    material: IBoxMaterial
     x_units: number
     y_units: number
     depth: number
@@ -167,25 +192,15 @@ export interface IDBUpdateBox {
     parent?: DocumentReference<DocumentData, DocumentData> | null,
 }
 
-export interface IDBUpdateCabinet {
-    [key: string]: any;
-    name: string
-    name_lower: string
-    name_number: string
-    description: string
-    material: IMaterial
+export interface IDBUpdateCabinet extends IDBUpdateStorage {
+    material: ICabinetMaterial
 }
 
-export interface IDBUpdateDrawer {
-    [key: string]: any;
-    name: string
-    name_lower: string
-    name_number: string
-    description: string
-}
+export interface IDBUpdateDrawer extends IDBUpdateStorage {}
 
+// Drawing Interfaces
 export interface IDrawBox {
-    material: IMaterial
+    material: IBoxMaterial
     x_units: number
     y_units: number 
     depth: number
@@ -193,17 +208,17 @@ export interface IDrawBox {
 }
 
 export interface IDrawCabinet {
-    material: IMaterial
+    material: ICabinetMaterial
     x_units: number
     y_units: number 
     drawers: IDrawDrawer[]
 }
 
 export interface IDrawDrawer {
-    id?: string
-    name: string
-    x_units: number
-    y_units: number 
-    x_pos: number
-    y_pos: number
+    id?: string,
+    name: string,
+    x_units: number; 
+    y_units: number; 
+    x_pos: number; 
+    y_pos: number;
 }

@@ -5,7 +5,7 @@
   :row-key="rowKey"
   :columns="columns"
   :data="storages"
-  max-height="60vh" 
+  max-height="65vh" 
   children-key="drawers"
   :row-class-name="rowClassName"
   :row-props="rowProps"
@@ -17,7 +17,7 @@
 import { ref, watch, computed } from 'vue';
 import { useCollection } from "vuefire";
 
-import { IBox, ICabinet } from '../../models/storage.model';
+import { IStorage } from '../../models/storage.model';
 import storageService from '../../services/storage.service';
 
 const props = defineProps<{
@@ -34,10 +34,10 @@ const storageId = computed({
 const storagesMainQuery = storageService.storagesMainQuery;
 const storages = useCollection(storagesMainQuery);
 
-const rowKey = (row: IBox & ICabinet) => row.id; 
+const rowKey = (row: IStorage) => row.id; 
 const checkedRowKeys = ref([] as string[]);
 
-const rowClassName = (row: IBox & ICabinet) => {
+const rowClassName = (row: IStorage) => {
   return row.id === storageId.value ? 'selected-row' : '';
 };
 
@@ -52,14 +52,14 @@ const columns = [
   }
 ]
 
-const rowProps = (rowData: IBox & ICabinet) => {
+const rowProps = (row: IStorage) => {
   return {
-    onClick: () => handleRowClick(rowData),
+    onClick: () => handleRowClick(row),
     style: { cursor: 'pointer' }
   };
 };
 
-const handleRowClick = (row: IBox & ICabinet) => {
+const handleRowClick = (row: IStorage) => {
   checkedRowKeys.value = [row.id] as string[]
   handleSelection(checkedRowKeys.value);
 }

@@ -1,6 +1,6 @@
 <template>
   <n-modal :show="show" @update:show="closeModal" preset="card" title="Thing" :style="{ width: modalWidth }" :mask-closable="false">
-    <n-thing content-style="margin-top: 10px;">
+    <!-- <n-thing content-style="margin-top: 10px;">
       <template #header>
         {{ thing?.name }}
       </template>
@@ -12,7 +12,38 @@
           </n-tag>
         </n-space>
       </template>
-    </n-thing>
+    </n-thing> -->
+    <n-descriptions label-placement="top" :column="2">
+      <n-descriptions-item>
+        <template #label>
+          <n-text type="warning">Name</n-text>
+        </template>
+        {{ thing?.name }}
+      </n-descriptions-item>
+      <n-descriptions-item>
+        <template #label>
+          <n-text type="warning">Qty</n-text>
+        </template>
+        {{ thing?.stock }}
+      </n-descriptions-item>
+      <n-descriptions-item :span="2">
+        <template #label>
+          <n-text type="warning">Tags</n-text>
+        </template>
+        <n-space v-if="thing?.tags.length > 0" size="small" style="margin-top: 4px">
+          <n-tag v-for="tag in thing?.tags" :key="tag.id" :bordered="false" type="info" size="small">
+            {{ tag.name }}
+          </n-tag>
+        </n-space>
+        <div v-else>None</div>
+      </n-descriptions-item>
+      <n-descriptions-item :span="2">
+        <template #label>
+          <n-text type="warning">Description</n-text>
+        </template>
+        {{ thing?.description }}
+      </n-descriptions-item>
+    </n-descriptions>
   </n-modal>
 </template>
 

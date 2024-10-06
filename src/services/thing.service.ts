@@ -1,11 +1,11 @@
-import { arrayUnion, collection, doc, getDoc, query, runTransaction, where } from 'firebase/firestore';
+import { collection, doc, getDoc, query, runTransaction, where } from 'firebase/firestore';
 import { ref } from 'vue';
 
 import { db } from '../firebase';
-import { IDBThing, IDBUpdateThing, ILocalThing, IUpdateThing } from '../models/thing.model';
-import tagService from './tag.service'
+import { ICreateThing, IDBCreateThing, IDBUpdateThing, IUpdateThing } from '../models/thing.model';
 import { calculateT9 } from './misc.service';
 import storageService from './storage.service';
+import tagService from './tag.service';
 
 // Firestore collections
 const thingsColRef = collection(db, 'things');
@@ -31,19 +31,13 @@ const getThingById = async(id: string) => {
 };
 
 const getThing = async() => {
-  try {
-    const docSnap = await getDoc(thingQuery.value);
+  const docSnap = await getDoc(thingQuery.value);
 
-    if (docSnap.exists()) return docSnap.data();
-    else return null;
-  } 
-  catch (error) {
-    console.error("Error getting document:", error);
-    throw error;
-  }
+  if (docSnap.exists()) return docSnap.data();
+  else return null;
 };
 
-const createThing = async (localThing: ILocalThing) => {
+const createThing = async (localThing: ICreateThing) => {
   await runTransaction(db, async (transaction) => {
     const newThingDocRef = doc(thingsColRef); // New thing id
 
@@ -51,35 +45,31 @@ const createThing = async (localThing: ILocalThing) => {
     const createdTags = await tagService.createTags(transaction, newThingDocRef, localThing.createdTags);
     
     // Update existing tags
-    const tags = localThing.tags.map(tag => doc(db, 'tags', tag.value));
-    tags.forEach(tagRef => {
-      transaction.update(tagRef, {
-        things: arrayUnion(newThingDocRef)
-      });
-    });
+    const tags = await tagService.addThingToTags(transaction, newThingDocRef, localThing.tags);
 
-    const storageDocRef = doc(db, 'storages', localThing.storageId);
+    const storageDocRef = doc(db, 'storages', localThing.storage);
 
-    const thing: IDBThing = {
+    const thing: IDBCreateThing = {
       name: localThing.name,
       name_lower: localThing.name.toLowerCase(),
       name_number: calculateT9(localThing.name),
+      stock: localThing.stock,
       description: localThing.description,
       tags: [...createdTags, ...tags],
       storage: storageDocRef
     };
 
-    storageService.addThingToStorage(transaction, newThingDocRef, storageDocRef);
-
     transaction.set(newThingDocRef, thing);
+
+    storageService.addThingToStorage(transaction, newThingDocRef, storageDocRef);
   });
 }
 
 const updateThing = async (localThing: IUpdateThing) => {
   await runTransaction(db, async (transaction) => {
     const thingDocRef = doc(db, 'things', localThing.id);
-    const oldStorageDocRef = doc(db, 'storages', localThing.oldStorageId);
-    const storageDocRef = doc(db, 'storages', localThing.storageId);
+    const oldStorageDocRef = doc(db, 'storages', localThing.oldStorage);
+    const storageDocRef = doc(db, 'storages', localThing.storage);
 
     // Create new tags
     const createdTags = await tagService.createTags(transaction, thingDocRef, localThing.createdTags);
@@ -92,6 +82,7 @@ const updateThing = async (localThing: IUpdateThing) => {
       name: localThing.name,
       name_lower: localThing.name.toLowerCase(),
       name_number: calculateT9(localThing.name),
+      stock: localThing.stock,
       description: localThing.description,
       tags: [...createdTags, ...tags],
       storage: storageDocRef

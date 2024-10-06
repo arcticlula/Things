@@ -3,8 +3,11 @@
     <div class="update-thing">
       <n-form class="update-thing-form" ref="formRef" :model="formValue" :rules="formRules">
         <n-grid cols="24" item-responsive responsive="screen">
-          <n-form-item-gi span="24 m:24" label="Name" path="name">
+          <n-form-item-gi span="18" label="Name" path="name">
             <n-input ref="inputNameRef" v-model:value="formValue.name" type="text" placeholder="Enter name..." />
+          </n-form-item-gi>
+          <n-form-item-gi span="5" offset="1" label="Qty" path="stock">
+            <n-input-number v-model:value="formValue.stock" type="number" min="0" placeholder="0" />
           </n-form-item-gi>
           <n-form-item-gi span="24 m:24" label="Description" path="description">
             <n-input v-model:value="formValue.description" type="textarea" placeholder="Enter description..." />
@@ -36,7 +39,7 @@
       </n-form>
       <n-card class="update-thing-canvas" :style="{ width: canvasWidth + 50 + 'px', height: canvasHeight + 42 + 'px' }">
         <CanvasBox v-if="storage?.type === 'box'" ref="canvasBoxRef" :c_width="canvasWidth" :c_height="canvasHeight" />
-        <CanvasCabinet v-else-if="storage?.type === 'cabinet'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" v-model:selectedDrawer="formValue.storageId"/>    
+        <CanvasCabinet v-else-if="storage?.type === 'cabinet'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" v-model:selectedDrawer="selectedDrawer"/>    
         <div class="update-thing-canvas-empty" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }" v-else>   
           <n-empty description="No storage selected" />
         </div> 
@@ -56,7 +59,7 @@ import { useMessage } from 'naive-ui';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useCollection, useDocument } from "vuefire";
 
-import { IBox, ICabinet, IDrawer } from '../../../models/storage.model';
+import { IBox, ICabinet, IContainer, IStorage } from '../../../models/storage.model';
 import { ILocalTag } from '../../../models/tag.model';
 import { IThing, IThingForm, IUpdateThing } from '../../../models/thing.model';
 
@@ -69,7 +72,6 @@ import CanvasCabinet from '../../Canvas/CanvasCabinet.vue';
 
 const props = defineProps<{
   showModal: boolean;
-  storageId: string;
   thing: IThing;
 }>();
 
@@ -91,6 +93,7 @@ const formRef = ref<FormInst | null>(null)
 
 const formValue = ref<IThingForm>({
   name: props.thing.name,
+  stock: props.thing.stock,
   description: props.thing.description,
   tags: props.thing.tags?.map(t => t.id) || [],
   storageId: props.thing.storage.id
@@ -100,6 +103,12 @@ const formRules = {
   name: {
     required: true,
     message: 'Please input the thing\'s name',
+    trigger: ['input', 'blur']
+  },
+  stock: {
+    required: true,
+    type: 'number',
+    message: 'No value',
     trigger: ['input', 'blur']
   },
   storageId: {
@@ -138,6 +147,16 @@ const storageDoc = computed(() =>
 
 const storage = useDocument(storageDoc);
 
+const isDrawer = ref(false);
+
+const selectedDrawer = computed({
+  get: () => isDrawer.value ? formValue.value.storageId : '',
+  set: (value: string) => {
+    isDrawer.value = true;
+    formValue.value.storageId = value 
+  }
+});
+
 const inputNameRef = ref<InputInst | null>(null)
 
 const canvasBoxRef = ref<InstanceType<typeof CanvasBox> | null>(null);
@@ -146,9 +165,9 @@ const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
 const canvasWidth = 250;
 const canvasHeight = 300;
 
-const storageOptions = computed(() => buildNestedStorage(storages.value as (ICabinet & IBox)[]));
+const storageOptions = computed(() => buildNestedStorage(storages.value as (IContainer)[]));
 
-const buildNestedStorage = (storages: (ICabinet & IBox)[], parentId: string | undefined = undefined) => {
+const buildNestedStorage = (storages: (IContainer)[], parentId: string | undefined = undefined) => {
   const sortedStorages = [...storages].sort((a, b) => {
     if (a.name < b.name) return -1;
     if (a.name > b.name) return 1;
@@ -180,6 +199,13 @@ watch(storage.pending, async (pending) => {
   }
 });
 
+watch(storages.pending, async (pending) => {
+  if (!pending && storages.value) {
+    await nextTick();
+    handleStorageUpdate();
+  }
+});
+
 const updateModalWidth = () => {
   const width = window.innerWidth;
   if (width > 1200) {
@@ -196,7 +222,9 @@ onMounted(() => {
   searchTags();
 
   selectedTags.value = props.thing.tags?.map(t => ({label: t.name, value: t.id})) || [];
-  handleStorageUpdate();
+  // If storages are already loaded then set the storage id
+  if(storages.value.length > 0)  handleStorageUpdate();
+
   window.addEventListener('resize', updateModalWidth)
 })
 
@@ -236,10 +264,12 @@ const handleTagUpdate = (_tagsValue: string[], tags: ILocalTag[]) => {
 
 const handleStorageUpdate = async() => {
   await nextTick();
-  let storage = storages.value.find(s => s.id === formValue.value.storageId) as ICabinet & IBox & IDrawer;
+  let storage = storages.value.find(s => s.id === formValue.value.storageId) as IStorage;
   // ToDo: redo logic
   drawStorageId.value = 'xixi';
-  drawStorageId.value = storage?.type === 'drawer' ? storage.parent.id : storage.id;
+  isDrawer.value = storage?.type === 'drawer';
+
+  drawStorageId.value = isDrawer.value ? storage.parent.id : storage.id;
 }
 
 const drawStorage = async () => {
@@ -281,12 +311,13 @@ const updateThing = async (e: MouseEvent) => {
   const thing: IUpdateThing = {
     id: props.thing.id,
     name: formValue.value.name,
+    stock: formValue.value.stock,
     description: formValue.value.description,
     createdTags: createdTags.value,
     tags: selectedTags.value.filter(selTag => selTag.value != selTag.label),
     removedTags: removedTags.value,
-    storageId,
-    oldStorageId: props.thing.storage.id
+    storage: storageId,
+    oldStorage: props.thing.storage.id
   }
 
   try {

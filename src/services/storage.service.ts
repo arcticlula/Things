@@ -2,7 +2,7 @@ import { arrayRemove, arrayUnion, collection, doc, DocumentData, DocumentReferen
 import { ref } from 'vue';
 
 import { db } from '../firebase';
-import { ICreateCabinet, IDBBox, IDBCabinet, IDBDrawer, IDBUpdateBox, IDBUpdateCabinet, IDBUpdateDrawer, ILocalBox, ILocalDrawer, IUpdateBox, IUpdateCabinet, IUpdateDrawer } from '../models/storage.model';
+import { ICreateBox, ICreateCabinet, ICreateDrawer, IDBCreateBox, IDBCreateCabinet, IDBCreateDrawer, IDBUpdateBox, IDBUpdateCabinet, IDBUpdateDrawer, IUpdateBox, IUpdateCabinet, IUpdateDrawer } from '../models/storage.model';
 import { calculateT9 } from './misc.service';
 
 // Firestore collections
@@ -45,13 +45,13 @@ const searchStorages = async (value: string) => {
   }
 };
 
-const createStorageBox = async (localBox: ILocalBox) => {
+const createStorageBox = async (localBox: ICreateBox) => {
   const parentDocRef = localBox.parent ? doc(db, 'storages', localBox.parent) : null;
 
   await runTransaction(db, async (transaction) => {
     const newBoxDocRef = doc(storagesColRef);
 
-    const storage: IDBBox = {
+    const storage: IDBCreateBox = {
       type: 'box',
       name: localBox.name,
       name_lower: localBox.name.toLowerCase(),
@@ -107,23 +107,21 @@ const updateStorageBox = async (box: IUpdateBox) => {
   });
 };
 
-const createDrawers = async (transaction: Transaction, parent: DocumentReference<DocumentData, DocumentData>, drawers: ILocalDrawer[]) => {  
+const createDrawers = async (transaction: Transaction, parent: DocumentReference<DocumentData, DocumentData>, drawers: ICreateDrawer[]) => {  
   const drawersId: DocumentReference<DocumentData, DocumentData>[] = [];
 
   for (const d of drawers) {
     const newDrawerDocRef = doc(storagesColRef);
-    const drawer: IDBDrawer = {
+    const drawer: IDBCreateDrawer = {
       type: 'drawer',
       name: d.name,
       name_lower: d.name.toLowerCase(),
       name_number: calculateT9(d.name),
-      description: `Drawer at row ${d.x_pos}, col ${d.y_pos}`,
       x_units: d.x_units,
       y_units: d.y_units,
       x_pos: d.x_pos,
       y_pos: d.y_pos,
-      parent,
-      things: []
+      parent
     };
 
     transaction.set(newDrawerDocRef, drawer);
@@ -153,7 +151,7 @@ const createStorageCabinet = async (cabinet: ICreateCabinet) => {
 
     const drawers = await createDrawers(transaction, newCabinetDocRef, cabinet.drawers);
 
-    const storage: IDBCabinet = {
+    const storage: IDBCreateCabinet = {
       type: 'cabinet',
       name: cabinet.name,
       name_lower: cabinet.name.toLowerCase(),

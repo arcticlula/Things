@@ -39,21 +39,27 @@ const draw = (cab?: IDrawCabinet) => {
     'plastic': {
       frameColor: "#4A4A4A", // Dark grey for plastic frame
       drawerFrameColor: "#B0B0B0", // Light grey for plastic drawer
+      drawerFrameColorUnselected: "#243534",
       drawerInnerColor: "rgba(255, 255, 255, 0.3)", // Clear plastic effect
+      drawerInnerColorUnselected: "rgba(255, 255, 255, 0.3)", 
       drawerBorderColor: "#666666", // Drawer border for plastic
       handleColor: "#333333", // Dark grey for plastic handle
     },
     'wood': {
       frameColor: "#6F4E37", // Softer brown for wood frame
       drawerFrameColor: "#C19A6B", // Light wood color for drawers
+      drawerFrameColorUnselected: "#C19A6B",
       drawerInnerColor: "#E3C299", // Muted beige for inner drawer
+      drawerInnerColorUnselected: "rgba(0, 0,	0, 0.3)",
       drawerBorderColor: "#5D4037", // Deeper wood tone for drawer border
       handleColor: "#4A2F1E", // Dark brown for wood handle
     },
     'metal': {
       frameColor: "#1E90FF",  // Blue metal enclosure
       drawerFrameColor: "#A9A9A9", // Brushed grey for metal drawer
+      drawerFrameColorUnselected: "#A9A9A9", // Brushed grey for metal drawer
       drawerInnerColor: "#D3D3D3", // Lighter grey for metal inner drawer
+      drawerInnerColorUnselected: "rgba(36, 53, 52, 0.7)",
       drawerBorderColor: "#505050", // Darker grey metal border
       handleColor: "#303030",  // Dark metal for handle
     }
@@ -69,14 +75,22 @@ const draw = (cab?: IDrawCabinet) => {
 
   // Draw each drawer with the selected material style
   cabinet.drawers?.forEach((drawer) => {
+    const drawerFrameColor = props.selectedDrawer ? 
+      (drawer?.id === props.selectedDrawer) ? materialStyles[material].drawerFrameColor : materialStyles[material].drawerFrameColorUnselected :
+      materialStyles[material].drawerFrameColor;
+
+    const drawerInnerColor = props.selectedDrawer ? 
+      (drawer?.id === props.selectedDrawer) ? materialStyles[material].drawerInnerColor : materialStyles[material].drawerInnerColorUnselected :
+      materialStyles[material].drawerInnerColor;
+
     const drawerX = startX + drawer.x_pos * drawerWidth;
     const drawerY = startY + drawer.y_pos * drawerHeight;
     const actualWidth = drawer.x_units * drawerWidth;
     const actualHeight = drawer.y_units * drawerHeight;
 
     // Draw the drawer background (frame)
-    const bg = props.selectedDrawer && (drawer?.id === props.selectedDrawer) ? 'yellow' : styles.drawerFrameColor;
-    ctx.fillStyle = bg;
+    ctx.fillStyle = drawerFrameColor;
+    // ctx.fillStyle = bg;
     ctx.fillRect(drawerX, drawerY, actualWidth, actualHeight);
 
     // For metal, let's add a "brushed metal" effect using a lighter streak
@@ -86,7 +100,7 @@ const draw = (cab?: IDrawCabinet) => {
     }
 
     // Draw the inner drawer front
-    ctx.fillStyle = styles.drawerInnerColor;
+    ctx.fillStyle = drawerInnerColor;
     ctx.fillRect(drawerX + 5, drawerY + 5, actualWidth - 10, actualHeight - 10);
 
     // Draw the drawer border

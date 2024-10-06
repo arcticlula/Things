@@ -91,7 +91,7 @@ import { useMessage } from 'naive-ui';
 import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref } from 'vue';
 import { useCollection } from "vuefire";
 
-import { IBox, ICabinet, ILocalBox, ICreateCabinet, ILocalDrawer, IMaterial, IStorageForm, ITypeStorage } from '../../../models/storage.model';
+import { IContainer, ICreateBox, ICreateCabinet, ICreateDrawer, ICreateStorageForm, IDrawBox, IDrawCabinet, IMaterial, ITypeContainer } from '../../../models/storage.model';
 import CanvasBox from '../../Canvas/CanvasBox.vue';
 import CanvasCabinet from '../../Canvas/CanvasCabinet.vue';
 
@@ -120,37 +120,31 @@ const modalWidth = ref('90%');
 
 const canvasWidth = 300;
 const canvasHeight = 338;
-const type: Ref<ITypeStorage> = ref('cabinet');
-let lastType: ITypeStorage = 'cabinet';
+const type: Ref<ITypeContainer> = ref('cabinet');
+let lastType: ITypeContainer = 'cabinet';
 const material: Ref<IMaterial> = ref('plastic');
 
-const drawers = ref<ILocalDrawer[]>([]);
-const drawerHistory = ref<ILocalDrawer[][]>([]); // History of drawer arrays
+const drawers = ref<ICreateDrawer[]>([]);
+const drawerHistory = ref<ICreateDrawer[][]>([]); // History of drawer arrays
 
 const storages = useCollection(storageService.storagesWithThings);
 
 const typeMaterial = computed<string>({
-  get(): string {
-    return `${type.value}-${material.value}`;
-  },
-  set(value) {
-    [type.value, material.value] = value.split('-') as [ITypeStorage, IMaterial];
-  },
-});
+  get: (): string  => `${type.value}-${material.value}`,
+  set: (value) => [type.value, material.value] = value.split('-') as [ITypeContainer, IMaterial]});
 
 const storageOptions = computed(() => {
-  const temp = storages.value.map((storage) => {
+  return storages.value.map((storage) => {
     return {
       value: storage.id,
-      label: buildLabel(storage as ICabinet & IBox),
+      label: buildLabel(storage as IContainer),
     }
   })
-  return temp;
 });
 
-const buildLabel = (storage: ICabinet & IBox): string => {
+const buildLabel = (storage: IContainer): string => {
   if(storage?.parent) {
-    return `${buildLabel(storage.parent as ICabinet & IBox)} / ${storage.name}`;
+    return `${buildLabel(storage.parent as IContainer)} / ${storage.name}`;
   }
   else {
     return storage?.name;
@@ -171,7 +165,7 @@ const typeOptions: CascaderOption[] = [
 
 const formRef = ref<FormInst | null>(null)
 
-const formValue = ref<IStorageForm>({
+const formValue = ref<ICreateStorageForm>({
   name: "",
   description: "",
   typeMaterial: typeMaterial.value,
@@ -270,7 +264,7 @@ const createStorage = async (e: MouseEvent) => {
 };
 
 const createStorageBox = async () => {
-  const box: ILocalBox = {
+  const box: ICreateBox = {
     name: formValue.value.name,
     description: formValue.value.description,
     type: type.value,
@@ -315,7 +309,7 @@ const createStorageCabinet = async () => {
 const addDrawer = (type: 'row' | 'column') => {
   let position;
   const { x_units, y_units } = formValue.value;
-  const { x_units: x_drawer_units, y_units: y_drawer_units, name } = formValue.value.drawer;
+  const { name, x_units: x_drawer_units, y_units: y_drawer_units } = formValue.value.drawer;
 
   if (x_drawer_units > x_units || y_drawer_units > y_units) {
     message.error("Drawer is too large for the cabinet dimensions!");
@@ -334,6 +328,8 @@ const addDrawer = (type: 'row' | 'column') => {
     const label = formValue.value.autoIncrement ? `${name} ${drawers.value.length + 1}` : name;
     drawers.value.push({
       name : label,
+      type: 'drawer',
+      description: '',
       x_pos,
       y_pos,
       x_units: x_drawer_units,
@@ -458,24 +454,17 @@ const getLayout = (): boolean[][] => {
 const drawStorage = async () => {
   await nextTick();
   if(type.value === "box") {
-    const box: ILocalBox = {
-      name: formValue.value.name,
-      description: formValue.value.description,
-      type: type.value,
+    const box: IDrawBox = {
       material: material.value,
       x_units: formValue.value.x_units,
       y_units: formValue.value.y_units,
       depth: formValue.value.depth,
       lid: formValue.value.boxLid,
-      parent: formValue.value.parent
     }
     canvasBoxRef.value?.draw(box);
   } 
   else {
-    const cabinet: ICreateCabinet = {
-      name: formValue.value.name,
-      description: formValue.value.description,
-      type: type.value,
+    const cabinet: IDrawCabinet = {
       material: material.value,
       x_units: formValue.value.x_units,
       y_units: formValue.value.y_units,

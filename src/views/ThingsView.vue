@@ -21,7 +21,7 @@
               <n-h2 prefix="bar" align-text>
                   Thing
               </n-h2>
-              <n-descriptions label-placement="top" :column="1">
+              <n-descriptions label-placement="top" :column="2">
                 <n-descriptions-item>
                   <template #label>
                     <n-text type="warning">Name</n-text>
@@ -29,6 +29,12 @@
                   {{ thingDB?.name }}
                 </n-descriptions-item>
                 <n-descriptions-item>
+                  <template #label>
+                    <n-text type="warning">Qty</n-text>
+                  </template>
+                  {{ thingDB?.stock }}
+                </n-descriptions-item>
+                <n-descriptions-item :span="2">
                   <template #label>
                     <n-text type="warning">Tags</n-text>
                   </template>
@@ -39,7 +45,7 @@
                   </n-space>
                   <div v-else>None</div>
                 </n-descriptions-item>
-                <n-descriptions-item>
+                <n-descriptions-item :span="2">
                   <template #label>
                     <n-text type="warning">Description</n-text>
                   </template>
@@ -49,7 +55,7 @@
             </div>
             <n-card class="search-things-details-canvas" :style="{ width: canvasWidth + 50 + 'px', height: canvasHeight + 42 + 'px' }">
               <CanvasBox v-if="storage.type === 'box'" ref="canvasBoxRef" :c_width="canvasWidth" :c_height="canvasHeight" />
-              <CanvasCabinet v-else-if="storage.type === 'drawer'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" :selectedDrawer="storageId"/>    
+              <CanvasCabinet v-else-if="storage.type === 'drawer'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" :selectedDrawer="storageId" />    
               <div class="search-storages-details-canvas-empty" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }" v-else>   
                 <n-empty description="No storage selected" />
               </div> 
@@ -59,7 +65,7 @@
       </n-layout>
     </n-gi>
   </n-grid>
-  <UpdateThingModal v-if="showUpdateThingModal" v-model:showModal="showUpdateThingModal" v-model:storageId="storageId" :thing="thingDB"></UpdateThingModal>
+  <UpdateThingModal v-if="showUpdateThingModal" v-model:showModal="showUpdateThingModal" @update:storageId="handleStorageIdUpdate" :thing="thingDB"></UpdateThingModal>
 </template>
 
 <script lang="ts" setup>
@@ -72,23 +78,23 @@
   import CanvasCabinet from '../components/Canvas/CanvasCabinet.vue';
   import thingService from '../services/thing.service';
   import storageService from '../services/storage.service';
-  import { IBox, ICabinet } from '../models/storage.model';
+  import { IBox, IContainer, IStorage } from '../models/storage.model';
 
   const showUpdateThingModal = ref(false);
-
-  const thingId = ref('xixi');
-
-  const thingDoc = computed(() =>
-    doc(thingService.thingsColRef, thingId.value)
-  )
-  
-  const thingDB = useDocument(thingDoc);
 
   const canvasWidth = 270;
   const canvasHeight = 300
 
   const canvasBoxRef = ref<InstanceType<typeof CanvasBox> | null>(null);
   const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
+
+  const thingId = ref('xixi');
+
+  const thingDoc = computed(() =>
+    doc(thingService.thingsColRef, thingId.value)
+  )
+
+  const thingDB = useDocument(thingDoc);
 
   const storageId = ref('xixi');
   
@@ -104,11 +110,11 @@
     thingId.value = id;
   };
 
-  const getAncestorNames = ({ id, name, type, parent }:  IBox & ICabinet): {id: string, name: string, type: string}[] => {
+  const getAncestorNames = ({ id, name, type, parent }:  IStorage): {id: string, name: string, type: string}[] => {
     const names: {id: string, name: string, type: string}[] = [{id, name, type}];
 
     if (parent) {
-      names.unshift(...getAncestorNames(parent as IBox & ICabinet));
+      names.unshift(...getAncestorNames(parent as IStorage));
     }
 
     return names;
@@ -123,6 +129,10 @@
     showUpdateThingModal.value = true;
   }
 
+  const handleStorageIdUpdate = (newStorageId: string) => {
+    storageId.value = newStorageId;
+  };
+
   watch(thingDB.pending, async (pending) => {
     if (!pending && thingDB.value) {
       await nextTick();
@@ -133,9 +143,9 @@
   watch(storage.pending, async (pending) => {
     if (!pending && storage.value) {
       await nextTick();
-      breadcrumbs.value = getAncestorNames(storage.value as IBox & ICabinet);    
+      breadcrumbs.value = getAncestorNames(storage.value as IStorage);    
 
-      if(storage.value?.type === 'drawer') canvasCabinetRef.value?.draw(storage.value.parent as IBox & ICabinet);
+      if(storage.value?.type === 'drawer') canvasCabinetRef.value?.draw(storage.value.parent as IContainer);
       else canvasBoxRef.value?.draw(storage.value as IBox);
     }
   });
@@ -154,7 +164,7 @@
 
 <style scoped lang="sass">
   .search-things-grid
-    height: 70vh
+    height: 75vh
   
   .search-things-layout
     height: 100%
@@ -184,7 +194,7 @@
 
   .search-things-details-thing
     width: 40%
-    padding: 8px
+    padding: 16px 32px
 
   .search-things-details-canvas
     display: flex
@@ -196,6 +206,4 @@
     display: flex
     justify-content: center
     align-items: center
-
-    
 </style>

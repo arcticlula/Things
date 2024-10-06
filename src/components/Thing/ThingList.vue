@@ -1,14 +1,14 @@
 <template>
   <n-data-table
-  v-model:checked-row-keys="checkedRowKeys"
-  :single-line="false"
-  :row-key="rowKey"
-  :columns="columns"
-  :data="things"
-  max-height="60vh" 
-  :row-class-name="rowClassName"
-  :row-props="rowProps"
-  @update:checked-row-keys="handleSelection"
+    v-model:checked-row-keys="checkedRowKeys"
+    :single-line="false"
+    :row-key="rowKey"
+    :columns="columns"
+    :data="things"
+    max-height="65vh" 
+    :row-class-name="rowClassName"
+    :row-props="rowProps"
+    @update:checked-row-keys="handleSelection"
   />
 </template>
 

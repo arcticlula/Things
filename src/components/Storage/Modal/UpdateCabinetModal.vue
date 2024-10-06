@@ -16,15 +16,15 @@
             <div style="font-weight: bold;">Drawer</div>
           </n-form-item-gi> -->
           <n-form-item-gi span="24" label="Name">
-            <n-input v-model:value="drawerName" :disabled="!isDrawerSelected" @update:value="drawStorage" clearable/>  
+            <n-input v-model:value="drawerName" :disabled="!isDrawer" @update:value="drawStorage" clearable/>  
           </n-form-item-gi>
           <n-form-item-gi span="24" label="Description">
-            <n-input v-model:value="drawerDesc" type="textarea" :disabled="!isDrawerSelected" clearable/>  
+            <n-input v-model:value="drawerDesc" type="textarea" :disabled="!isDrawer" clearable/>  
           </n-form-item-gi>
         </n-grid>
       </n-form>
       <div class="update-storage-canvas" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }">
-        <CanvasCabinet ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" v-model:selectedDrawer="drawerId"/>
+        <CanvasCabinet ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" v-model:selectedDrawer="selectedDrawerId"/>
       </div>
     </div>
     <n-space justify="end" :style="{ width: '100%', 'margin-top': '16px' }">
@@ -39,7 +39,7 @@ import type { FormInst } from "naive-ui";
 import { useMessage } from "naive-ui";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 
-import { ICabinet, ICabinetUpdateForm, IDrawCabinet, IUpdateCabinet } from "../../../models/storage.model";
+import { ICabinet, IUpdateCabinetForm, IDrawCabinet, IUpdateCabinet } from "../../../models/storage.model";
 import CanvasCabinet from "../../Canvas/CanvasCabinet.vue";
 
 import storageService from "../../../services/storage.service";
@@ -52,6 +52,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "update:showModal", value: boolean): void;
+  (e: 'update:selectedDrawer', value: string): void;
 }>();
 
 const show = computed({
@@ -60,26 +61,30 @@ const show = computed({
 });
 
 const drawerId = ref(props.selectedDrawer);
+
 const selectedDrawerIndex = computed(() => formValue.value.drawers.findIndex(d => d.id === drawerId.value));
-const isDrawerSelected = computed(() => selectedDrawerIndex.value != -1);
+const isDrawer = computed(() => selectedDrawerIndex.value != -1);
+
+const selectedDrawerId = computed({
+  get: () => isDrawer.value ? drawerId.value : '',
+  set: (value: string) => {
+    drawerId.value = value;
+  }
+});
 
 const drawerName = computed({
-  get() {
-    return isDrawerSelected.value ? formValue.value.drawers[selectedDrawerIndex.value].name : '';
-  },
+  get: () =>  isDrawer.value ? formValue.value.drawers[selectedDrawerIndex.value].name : '',
   set(value: string) {
-    if (isDrawerSelected.value) {
+    if (isDrawer.value) {
       formValue.value.drawers[selectedDrawerIndex.value].name = value;
     }
   }
 });
 
 const drawerDesc = computed({
-  get() {
-    return isDrawerSelected.value ? formValue.value.drawers[selectedDrawerIndex.value].description : '';
-  },
+  get: () => isDrawer.value ? formValue.value.drawers[selectedDrawerIndex.value].description : '',
   set(value: string) {
-    if (isDrawerSelected.value) {
+    if (isDrawer.value) {
       formValue.value.drawers[selectedDrawerIndex.value].description = value;
     }
   }
@@ -102,7 +107,7 @@ const materialOptions = [
 
 const formRef = ref<FormInst | null>(null);
 
-const formValue = ref<ICabinetUpdateForm>({
+const formValue = ref<IUpdateCabinetForm>({
   name: props.storage.name,
   description: props.storage.description,
   material: props.storage.material,
@@ -129,6 +134,7 @@ const updateModalWidth = () => {
 };
 
 const closeModal = (value: boolean = false) => {
+  emit("update:selectedDrawer", drawerId.value);
   show.value = value;
 };
 

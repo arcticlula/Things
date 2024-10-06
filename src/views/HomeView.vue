@@ -12,24 +12,33 @@
   <div class="search-things">
     <n-grid cols="24" item-responsive responsive="screen">
       <n-gi span="11">
-          <n-input v-model:value="searchValue" type="text" placeholder="Search..." />
+        <n-input-group>
+          <!-- <n-radio-group v-model:value="searchType">
+            <n-radio-button
+              v-for="opt in searchOptions"
+              :key="opt.value"
+              :value="opt.value"
+              :label="opt.label"
+            />
+          </n-radio-group> -->
+          <n-select v-model:value="searchType" :style="{ width: '120px' }" :options="searchOptions" />
+          <n-input v-model:value="searchValue" type="text" :placeholder="searchPlaceholder" />
+        </n-input-group>
       </n-gi>
       <n-gi span="4" offset="1">
-          <n-button type="primary" @click="search">Search</n-button>
+          <n-button type="primary" secondary @click="search">Search</n-button>
       </n-gi>
       <n-gi span="7" offset="1" style="justify-self: self-end;">
         <n-button strong secondary type="info" @click="showCreateStorageModal = true" style="margin-right: 4px;">Create Storage</n-button>
         <n-button strong secondary type="info" @click="showCreateThingModal = true">Create Thing</n-button>
       </n-gi>
       <n-gi span="24" class="search-things-tabs">
-        <n-tabs v-model:value="tab" type="segment" animated>
-          <n-tab-pane key="things" tab="Things" name="things">
+        <div v-if="searchType === 'things'">
             <ThingsView></ThingsView>
-          </n-tab-pane>
-          <n-tab-pane key="storages" tab="Storages" name="storages">
+        </div>
+        <div v-else>
             <StoragesView></StoragesView>
-          </n-tab-pane>
-        </n-tabs>
+        </div>
       </n-gi>
     </n-grid>
   </div>
@@ -40,26 +49,31 @@
 
 <script lang="ts" setup>
   import { SettingsSharp } from '@vicons/ionicons5';
-  import { ref } from 'vue';
+  import { computed, ref } from 'vue';
   import ThingsView from "../views/ThingsView.vue";
   import StoragesView from "../views/StoragesView.vue";
 
   import thingService from '../services/thing.service';
   import storageService from '../services/storage.service';
 
-  const tab = ref('things');
-
   // State variables
   const showCreateThingModal = ref(false);
   const showCreateStorageModal = ref(false);
+  
+  const searchType = ref('things');
+  const searchValue = ref('');
+  const searchPlaceholder = computed(() => searchType.value === 'things' ? 'Search Things...' : 'Search Storages...');
 
-  const searchValue = ref("");
+  const searchOptions = ref([
+    { label: 'Things',  value: 'things'},
+    { label: 'Storages', value: 'storages' }
+  ]);
 
   const search = async () => {
-    if(tab.value === 'things') {
+    if(searchType.value === 'things') {
       await thingService.searchThings(searchValue.value);
     }
-    else if(tab.value === 'storages') {
+    else if(searchType.value === 'storages') {
       await storageService.searchStorages(searchValue.value);
     }
   }

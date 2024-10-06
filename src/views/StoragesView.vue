@@ -14,12 +14,12 @@
               {{ bc.name }}
               </n-breadcrumb-item>
             </n-breadcrumb>
-            <n-button v-if="storageDB" text @click="openStorageUpdateModal(storageDB?.type)"><n-icon :component="Edit" /></n-button>
+            <n-button v-if="storage" text @click="openStorageUpdateModal(storage?.type)"><n-icon :component="Edit" /></n-button>
           </div>
-          <div v-if="storageDB" class="search-storages-details">
+          <div v-if="storage" class="search-storages-details">
             <n-card class="search-storages-details-canvas" :style="{ width: canvasWidth + 50 + 'px', height: canvasHeight + 42 + 'px' }">
-              <CanvasBox v-if="storageDB?.type === 'box'" ref="canvasBoxRef" :c_width="canvasWidth" :c_height="canvasHeight" />
-              <CanvasCabinet v-else-if="storageDB?.type !== 'box'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" v-model:selectedDrawer="storageId"/>    
+              <CanvasBox v-if="storage?.type === 'box'" ref="canvasBoxRef" :c_width="canvasWidth" :c_height="canvasHeight" />
+              <CanvasCabinet v-else-if="storage?.type !== 'box'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" v-model:selectedDrawer="selectedDrawer"/>    
               <div class="search-storages-details-canvas-empty" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }" v-else>   
                 <n-empty description="No storage selected" />
               </div> 
@@ -32,8 +32,8 @@
       </n-layout>
     </n-gi>
   </n-grid>
-  <UpdateBoxModal v-if="showUpdateBoxModal" v-model:showModal="showUpdateBoxModal" :storage="storageDB"></UpdateBoxModal>
-  <UpdateCabinetModal v-if="showUpdateCabinetModal" v-model:showModal="showUpdateCabinetModal" :storage="storageDB?.type === 'cabinet' ? storageDB : storageDB?.parent" :selectedDrawer="storageId"></UpdateCabinetModal>
+  <UpdateBoxModal v-if="showUpdateBoxModal" v-model:showModal="showUpdateBoxModal" :storage="storage"></UpdateBoxModal>
+  <UpdateCabinetModal v-if="showUpdateCabinetModal" v-model:showModal="showUpdateCabinetModal" :storage="storage?.type === 'cabinet' ? storage : storage?.parent" v-model:selectedDrawer="selectedDrawer"></UpdateCabinetModal>
 </template>
 
 <script lang="ts" setup>
@@ -45,13 +45,13 @@
   import CanvasBox from '../components/Canvas/CanvasBox.vue';
   import CanvasCabinet from '../components/Canvas/CanvasCabinet.vue';
   import storageService from '../services/storage.service';
-  import { IBox, ICabinet, IDrawer, IType } from '../models/storage.model';
+  import { IBox, ICabinet, IDrawer, IStorage, IType } from '../models/storage.model';
 
   const showUpdateBoxModal = ref(false);
   const showUpdateCabinetModal = ref(false);
 
-  const canvasWidth = 350;
-  const canvasHeight = 400
+  const canvasWidth = 300;
+  const canvasHeight = 350
 
   const canvasBoxRef = ref<InstanceType<typeof CanvasBox> | null>(null);
   const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
@@ -62,15 +62,25 @@
     doc(storageService.storagesColRef, storageId.value)
   )
 
-  const storageDB = useDocument(storageDoc);
+  const storage = useDocument(storageDoc);
+
+  const isDrawer = ref(false);
+
+  const selectedDrawer = computed({
+    get: () => isDrawer.value ? storageId.value : '',
+    set: (value: string) => {
+      isDrawer.value = true;
+      storageId.value = value;
+    }
+  });
 
   const breadcrumbs: Ref<{id: string, name: string, type: string}[]> = ref([]);
 
-  const getAncestorNames = ({ id, name, type, parent }:  IBox & ICabinet): {id: string, name: string, type: string}[] => {
+  const getAncestorNames = ({ id, name, type, parent }: IStorage): {id: string, name: string, type: string}[] => {
     const names: {id: string, name: string, type: string}[] = [{id, name, type}];
 
     if (parent) {
-      names.unshift(...getAncestorNames(parent as IBox & ICabinet));
+      names.unshift(...getAncestorNames(parent as IStorage));
     }
 
     return names;
@@ -92,31 +102,32 @@
     }
   }
   
-  watch(storageDB.pending, async (pending) => {
+  watch(storage.pending, async (pending) => {
     if (!pending) {
       let parent;
       await nextTick();
+      storageService.selectStorageById(storageId.value);
 
-      await storageService.selectStorageById(storageId.value);
+      isDrawer.value = storage.value?.type === 'drawer';
 
-      switch (storageDB.value?.type) {
+      switch (storage.value?.type) {
         case 'drawer':
           await nextTick();
-          parent = (storageDB.value as IDrawer)?.parent;
+          parent = (storage.value as IDrawer)?.parent;
           if(parent) {
             canvasCabinetRef.value?.draw(parent);
           }
           break;
         case 'cabinet':
           await nextTick();
-          canvasCabinetRef.value?.draw(storageDB.value as ICabinet);
+          canvasCabinetRef.value?.draw(storage.value as ICabinet);
           break;
         case 'box':
           await nextTick();
-          canvasBoxRef.value?.draw(storageDB.value as IBox);
+          canvasBoxRef.value?.draw(storage.value as IBox);
           break;
       }
-      breadcrumbs.value = getAncestorNames(storageDB.value as IBox & ICabinet & IDrawer);
+      breadcrumbs.value = getAncestorNames(storage.value as IStorage);
     }
   });
 
@@ -129,20 +140,11 @@
     }
   });
 
-  watch(showUpdateCabinetModal, async (value: boolean) => {
-    //ToDo: redo logic
-    if (!value) {
-      const id = storageId.value
-      storageId.value = 'xixi'
-      storageId.value = id
-    }
-  });
-
 </script>
 
 <style scoped lang="sass">
   .search-storages-grid
-    height: 70vh
+    height: 75vh
   
   .search-storages-layout
     height: 100%

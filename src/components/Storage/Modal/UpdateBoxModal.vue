@@ -46,7 +46,7 @@ import { useMessage } from "naive-ui";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useCollection } from "vuefire";
 
-import { IBox, IDrawer, ILocalBox, IBoxUpdateForm, IUpdateBox } from "../../../models/storage.model";
+import { IBox, IStorageThings, IUpdateBoxForm, IUpdateBox, IDrawBox } from "../../../models/storage.model";
 import CanvasBox from "../../Canvas/CanvasBox.vue";
 
 import storageService from "../../../services/storage.service";
@@ -95,7 +95,7 @@ const storageOptions = computed(() => {
 
 const buildLabel = (storage: IBox): string => {
   if (storage?.parent) {
-    return `${buildLabel(storage.parent as IDrawer & IBox)} / ${storage.name}`;
+    return `${buildLabel(storage.parent as IStorageThings)} / ${storage.name}`;
   } else {
     return storage?.name;
   }
@@ -109,7 +109,7 @@ const materialOptions = [
 
 const formRef = ref<FormInst | null>(null);
 
-const formValue = ref<IBoxUpdateForm>({
+const formValue = ref<IUpdateBoxForm>({
   name: props.storage.name,
   description: props.storage.description,
   material: props.storage.material,
@@ -189,16 +189,14 @@ const updateStorage = async (e: MouseEvent) => {
 
 const drawStorage = async () => {
   await nextTick();
-  const box: ILocalBox = {
-    name: formValue.value.name,
-    description: formValue.value.description,
-    type: props.storage.type,
+  const box: IDrawBox = {
     material: formValue.value.material,
     x_units: formValue.value.x_units,
     y_units: formValue.value.y_units,
     depth: formValue.value.depth,
     lid: formValue.value.boxLid,
   };
+
   canvasBoxRef.value?.draw(box);
 };
 </script>
