@@ -19,8 +19,8 @@
       <template #label>
         <n-text type="warning">Tags</n-text>
       </template>
-      <n-space v-if="thing?.tags.length > 0" size="small" style="margin-top: 4px">
-        <n-tag v-for="tag in thing?.tags" :key="tag.id" :bordered="false" type="info" size="small">
+      <n-space v-if="thing?.tags && thing.tags?.length > 0" size="small" style="margin-top: 4px">
+        <n-tag v-for="tag in thing.tags" :key="tag.id" :bordered="false" type="info" size="small">
           {{ tag.name }}
         </n-tag>
       </n-space>
