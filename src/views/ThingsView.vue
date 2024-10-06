@@ -17,49 +17,16 @@
             <n-button v-if="storage" text @click="openThingUpdateModal()"><n-icon :component="Edit" /></n-button>
           </div>
           <div v-if="storage" class="search-things-details">
-            <div class="search-things-details-thing">
-              <n-h2 prefix="bar" align-text>
-                  Thing
-              </n-h2>
-              <n-descriptions label-placement="top" :column="2">
-                <n-descriptions-item>
-                  <template #label>
-                    <n-text type="warning">Name</n-text>
-                  </template>
-                  {{ thingDB?.name }}
-                </n-descriptions-item>
-                <n-descriptions-item>
-                  <template #label>
-                    <n-text type="warning">Qty</n-text>
-                  </template>
-                  {{ thingDB?.stock }}
-                </n-descriptions-item>
-                <n-descriptions-item :span="2">
-                  <template #label>
-                    <n-text type="warning">Tags</n-text>
-                  </template>
-                  <n-space v-if="thingDB?.tags.length > 0" size="small" style="margin-top: 4px">
-                    <n-tag v-for="tag in thingDB?.tags" :key="tag.id" :bordered="false" type="info" size="small">
-                      {{ tag.name }}
-                    </n-tag>
-                  </n-space>
-                  <div v-else>None</div>
-                </n-descriptions-item>
-                <n-descriptions-item :span="2">
-                  <template #label>
-                    <n-text type="warning">Description</n-text>
-                  </template>
-                  {{ thingDB?.description }}
-                </n-descriptions-item>
-              </n-descriptions>
+            <div class="search-things-details-description">
+              <ThingDescription :thing="thingDB"></ThingDescription>
             </div>
-            <n-card class="search-things-details-canvas" :style="{ width: canvasWidth + 50 + 'px', height: canvasHeight + 42 + 'px' }">
+            <div class="search-things-details-canvas">
               <CanvasBox v-if="storage.type === 'box'" ref="canvasBoxRef" :c_width="canvasWidth" :c_height="canvasHeight" />
               <CanvasCabinet v-else-if="storage.type === 'drawer'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" :selectedDrawer="storageId" />    
               <div class="search-storages-details-canvas-empty" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }" v-else>   
                 <n-empty description="No storage selected" />
               </div> 
-            </n-card>
+            </div>
           </div>
         </n-card>
       </n-layout>
@@ -82,8 +49,8 @@
 
   const showUpdateThingModal = ref(false);
 
-  const canvasWidth = 270;
-  const canvasHeight = 300
+  const canvasWidth = 300;
+  const canvasHeight = 350;
 
   const canvasBoxRef = ref<InstanceType<typeof CanvasBox> | null>(null);
   const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
@@ -186,24 +153,22 @@
 
   .search-things-details
     display: flex
-    justify-content: center
     align-items: flex-start
     width: 100%
     height: 100%
-    margin-top: 16px
 
-  .search-things-details-thing
-    width: 40%
-    padding: 16px 32px
+  .search-things-details-description
+    width: 100%
+    margin: 24px 0 0 32px 
 
   .search-things-details-canvas
     display: flex
-    justify-content: center
-    background-color: rgba(255, 255, 255, 0.1)
-    margin: 8px
+    background-color: rgba(255, 255, 255, 0.05)
+    margin: 24px 16px 0 8px
 
   .search-things-details-canvas-empty
     display: flex
     justify-content: center
     align-items: center
+    
 </style>

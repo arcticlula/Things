@@ -26,7 +26,7 @@
         </template>
         {{ thing?.stock }}
       </n-descriptions-item>
-      <n-descriptions-item :span="2">
+      <n-descriptions-item>
         <template #label>
           <n-text type="warning">Tags</n-text>
         </template>
@@ -37,7 +37,7 @@
         </n-space>
         <div v-else>None</div>
       </n-descriptions-item>
-      <n-descriptions-item :span="2">
+      <n-descriptions-item>
         <template #label>
           <n-text type="warning">Description</n-text>
         </template>

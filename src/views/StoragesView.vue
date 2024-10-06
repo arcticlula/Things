@@ -17,15 +17,15 @@
             <n-button v-if="storage" text @click="openStorageUpdateModal(storage?.type)"><n-icon :component="Edit" /></n-button>
           </div>
           <div v-if="storage" class="search-storages-details">
-            <n-card class="search-storages-details-canvas" :style="{ width: canvasWidth + 50 + 'px', height: canvasHeight + 42 + 'px' }">
+            <div class="search-storages-details-canvas">
               <CanvasBox v-if="storage?.type === 'box'" ref="canvasBoxRef" :c_width="canvasWidth" :c_height="canvasHeight" />
               <CanvasCabinet v-else-if="storage?.type !== 'box'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" v-model:selectedDrawer="selectedDrawer"/>    
               <div class="search-storages-details-canvas-empty" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }" v-else>   
                 <n-empty description="No storage selected" />
               </div> 
-            </n-card>
-            <div class="search-storages-details-things">
-              <StorageThingList @update:storageId="handleStorageIdUpdate"></StorageThingList>
+            </div>
+            <div class="search-storages-details-description">
+              <StorageDescription @update:storageId="handleStorageIdUpdate"></StorageDescription>
             </div>
           </div>
         </n-card>
@@ -51,7 +51,7 @@
   const showUpdateCabinetModal = ref(false);
 
   const canvasWidth = 300;
-  const canvasHeight = 350
+  const canvasHeight = 350;
 
   const canvasBoxRef = ref<InstanceType<typeof CanvasBox> | null>(null);
   const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
@@ -166,25 +166,22 @@
 
   .search-storages-details
     display: flex
-    justify-content: center
     align-items: flex-start
     width: 100%
     height: 100%
 
   .search-storages-details-canvas
     display: flex
-    justify-content: center
-    align-self: center
-    background-color: rgba(255, 255, 255, 0.1)
-    margin: 8px
+    background-color: rgba(255, 255, 255, 0.05)
+    margin: 24px 8px 0 8px
 
   .search-storages-details-canvas-empty
     display: flex
     justify-content: center
     align-items: center
 
-  .search-storages-details-things
-    width: 40%
-    padding: 16px 32px
+  .search-storages-details-description
+    width: 100%
+    margin: 24px 0 0 32px
     
 </style>
