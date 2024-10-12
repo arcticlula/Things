@@ -36,6 +36,8 @@ import { ref, watch } from 'vue';
 
 import CanvasBox from '../components/Canvas/CanvasBox.vue';
 import CanvasCabinet from '../components/Canvas/CanvasCabinet.vue';
+import StorageBreadcrumb from '../components/Storage/StorageBreadcrumb.vue';
+
 import { IType } from '../models/storage.model';
 import { useStorageStore } from '../stores/storage';
 
@@ -50,6 +52,7 @@ const canvasHeight = 350;
 
 const canvasBoxRef = ref<InstanceType<typeof CanvasBox> | null>(null);
 const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
+const storageBreadcrumbRef = ref<InstanceType<typeof StorageBreadcrumb> | null>(null);
 
 const openStorageUpdateModal = async (type: IType) => {
   switch(type) {
@@ -71,6 +74,7 @@ watch(storage.pending, async (pending) => {
 
 watch(storage, async () => {
   drawStorage();
+  storageBreadcrumbRef.value?.recreatePath();
 })
 
 </script>

@@ -69,10 +69,14 @@ watch(thing?.pending, async (pending) => {
 });
 
 watch(storage.pending, async (pending) => {
-  if (!pending && storage.value) {
+  if (!pending && storage.value && !showUpdateThingModal.value) {
     drawStorage();
   }
 });
+
+watch(showUpdateThingModal, (value) => {
+  if (!value) drawStorage();
+})
 </script>
 
 <style scoped lang="sass">

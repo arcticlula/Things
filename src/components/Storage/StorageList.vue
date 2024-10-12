@@ -1,10 +1,11 @@
 <template>
   <n-data-table
   v-model:checked-row-keys="checkedRowKeys"
-  :single-line="false"
   :row-key="rowKey"
   :columns="columns"
   :data="containers"
+  :expanded-row-keys="expandedKeys"
+  @update:expanded-row-keys="onExpandedChange"
   max-height="65vh" 
   children-key="drawers"
   :row-class-name="rowClassName"
@@ -21,7 +22,7 @@ import { IStorage } from '../../models/storage.model';
 import { useStorageStore } from '../../stores/storage';
 
 const storageStore = useStorageStore();
-const { storageId, containers } = storeToRefs(storageStore);
+const { storageId, storage, containers } = storeToRefs(storageStore);
 
 const columns = [
   {
@@ -40,6 +41,7 @@ onMounted(() => {
 
 const rowKey = (row: IStorage) => row.id; 
 const checkedRowKeys = ref([] as string[]);
+const expandedKeys = ref([] as string[]);
 
 const rowClassName = (row: IStorage) => {
   return row.id === storageId.value ? 'selected-row' : '';
@@ -50,6 +52,10 @@ const rowProps = (row: IStorage) => {
     onClick: () => handleRowClick(row),
     style: { cursor: 'pointer' }
   };
+};
+
+const onExpandedChange = (keys: string[]) => {
+  expandedKeys.value = keys;
 };
 
 const handleRowClick = (row: IStorage) => {
@@ -71,6 +77,18 @@ const selectStorage = (id: string) => {
 
 watch(storageId, async () => {
   setRowChecked(storageId.value)
+});
+
+watch(storage.pending, async (pending) => {
+  if(!pending && storage.value) {
+    if(storage.value?.type === 'drawer') {
+      const parentKey = storage.value.parent.id;
+
+      if (!expandedKeys.value.includes(parentKey)) {
+        expandedKeys.value = [parentKey];
+      }
+    }
+  }
 });
 
 watch(containers.pending, async (pending) => {

@@ -70,11 +70,18 @@ const goToStorage = (id: string) => {
   storageId.value = id;
 }
 
+const recreatePath = () => {
+  if(breadcrumbs.value.find(s => s.id === storageId.value)) return;
+  if (storagesAll.value) breadcrumbs.value = buildPathToStorage(storageId.value, storagesAll.value as IStorage[]);
+}
+
 watch(storageId, () => {
-    if(breadcrumbs.value.find(s => s.id === storageId.value)) return;
-    if (storagesAll.value) breadcrumbs.value = buildPathToStorage(storageId.value, storagesAll.value as IStorage[]);
+  recreatePath();
 });
 
+defineExpose({
+  recreatePath
+});
 </script>
 <style scoped lang="sass">
 :deep(.n-breadcrumb-item:last-child .n-breadcrumb-item__link)
