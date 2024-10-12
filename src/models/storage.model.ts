@@ -42,7 +42,7 @@ export interface IUpdateCabinetForm {
     name: string
     description: string
     material: ICabinetMaterial  
-    drawers: IDrawer[]
+    drawers: IUpdateDrawer[]
 }
 
 // Storage Interfaces
@@ -67,7 +67,7 @@ export interface IBox extends ILocalStorage {
     material: IBoxMaterial,
     parent?: IBox | ICabinet | null,
     things?: IThing[],
-    storages?: IBox | null,
+    storages?: IBox[] | null,
 }
 
 export interface ICabinet extends ILocalStorage {
@@ -80,7 +80,7 @@ export interface IDrawer extends ILocalStorage {
     y_pos: number;
     parent: ICabinet,
     things?: IThing[],
-    storages?: IBox | null
+    storages?: IBox[] | null
 }
 
 export type IContainer = IBox & ICabinet;
@@ -168,7 +168,7 @@ export interface IUpdateBox extends IUpdateStorage {
 
 export interface IUpdateCabinet extends IUpdateStorage {
     material: ICabinetMaterial
-    drawers: IDrawer[]
+    drawers: IUpdateDrawer[]
 }
 
 export interface IUpdateDrawer extends IUpdateStorage {}
@@ -208,6 +208,7 @@ export interface IDrawBox {
 }
 
 export interface IDrawCabinet {
+    id?: string
     material: ICabinetMaterial
     x_units: number
     y_units: number 

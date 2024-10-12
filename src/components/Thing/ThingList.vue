@@ -14,21 +14,16 @@
 
 <script setup lang="ts">
 import { NTag } from 'naive-ui';
-import { h, ref, watch } from 'vue';
-import { useCollection } from "vuefire";
+import { storeToRefs } from 'pinia';
+import { h, onMounted, ref, watch } from 'vue';
 
 import { IThing } from '../../models/thing.model';
-import thingService from '../../services/thing.service';
+import { useThingStore } from '../../stores/thing';
 
-const emit = defineEmits(['update:thingId']);
+const thingStore = useThingStore();
+const { thingId, things } = storeToRefs(thingStore);
 
-const rowKey = (row: IThing) => row.id; 
 const checkedRowKeys = ref([] as string[]);
-const selectedRowKey = ref('');
-
-const rowClassName = (row: IThing) => {
-  return row.id === selectedRowKey.value ? 'selected-row' : '';
-};
 
 const columns = [
   {
@@ -64,6 +59,16 @@ const columns = [
   }
 ]
 
+onMounted(() => {
+  if(things.value.length > 0) selectThing(things.value[0].id);
+})
+
+const rowKey = (row: IThing) => row.id; 
+
+const rowClassName = (row: IThing) => {
+  return row.id === thingId.value ? 'selected-row' : '';
+};
+
 const rowProps = (rowData: IThing) => {
   return {
     onClick: () => handleRowClick(rowData),
@@ -71,28 +76,28 @@ const rowProps = (rowData: IThing) => {
   };
 };
 
-// const message = useMessage();
-
-const thingsQuery = thingService.thingsQuery;
-const things = useCollection(thingsQuery);
-
-watch(things.pending, async (pending) => {
-  if(!pending && things.value.length > 0) {
-    checkedRowKeys.value = [things.value[0].id] as string[]
-    handleSelection(checkedRowKeys.value);
-  }
-});
-
 const handleRowClick = (row: IThing) => {
-  checkedRowKeys.value = [row.id] as string[]
-  handleSelection(checkedRowKeys.value);
+  selectThing(row.id);
 }
 
 const handleSelection = (ids: string[]) => {
-  selectedRowKey.value = ids[0];
-  emit('update:thingId', selectedRowKey.value)
+  thingId.value = ids[0];
 }
 
+const setRowChecked = (id: string) => {
+  checkedRowKeys.value = [id] as string[];
+}
+
+const selectThing = (id: string) => {
+  setRowChecked(id);
+  handleSelection(checkedRowKeys.value);
+}
+
+watch(things.pending, async (pending) => {
+  if(!pending && things.value.length > 0) {
+    selectThing(things.value[0].id);
+  }
+});
 </script>
 
 <style scoped lang="sass">

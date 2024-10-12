@@ -37,13 +37,13 @@
           </n-form-item-gi>
         </n-grid>
       </n-form>
-      <n-card class="update-thing-canvas" :style="{ width: canvasWidth + 50 + 'px', height: canvasHeight + 42 + 'px' }">
+      <div class="update-thing-canvas">
         <CanvasBox v-if="storage?.type === 'box'" ref="canvasBoxRef" :c_width="canvasWidth" :c_height="canvasHeight" />
-        <CanvasCabinet v-else-if="storage?.type === 'cabinet'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" v-model:selectedDrawer="selectedDrawer"/>    
+        <CanvasCabinet v-else-if="storage?.type !== 'box'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" canSelect/>    
         <div class="update-thing-canvas-empty" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }" v-else>   
           <n-empty description="No storage selected" />
         </div> 
-      </n-card>
+      </div>
     </div>
     <n-space justify="end" :style="{ width: '100%', 'margin-top': '16px' }">
       <n-button type="primary" @click="updateThing($event)">Save</n-button>
@@ -53,50 +53,57 @@
 </template>
 
 <script setup lang="ts">
-import { doc } from 'firebase/firestore';
 import type { CascaderOption, FormInst, InputInst } from 'naive-ui';
 import { useMessage } from 'naive-ui';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { useCollection, useDocument } from "vuefire";
+import { storeToRefs } from 'pinia';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
-import { IBox, ICabinet, IContainer, IStorage } from '../../../models/storage.model';
+import { IStorage } from '../../../models/storage.model';
 import { ILocalTag } from '../../../models/tag.model';
-import { IThing, IThingForm, IUpdateThing } from '../../../models/thing.model';
+import { IThingForm, IUpdateThing } from '../../../models/thing.model';
 
-import storageService from '../../../services/storage.service';
-import tagService from '../../../services/tag.service';
-import thingService from '../../../services/thing.service';
+import { useStorageStore } from '../../../stores/storage';
+import { useThingStore } from '../../../stores/thing';
+import { useTagStore } from '../../../stores/tag';
 
 import CanvasBox from '../../Canvas/CanvasBox.vue';
 import CanvasCabinet from '../../Canvas/CanvasCabinet.vue';
 
 const props = defineProps<{
   showModal: boolean;
-  thing: IThing;
 }>();
 
 const emit = defineEmits<{
   (e: 'update:showModal', value: boolean): void;
-  (e: 'update:storageId', value: string): void;
 }>();
 
-const show = computed({
-  get: () => props.showModal,
-  set: (value: boolean) => emit('update:showModal', value)
-});
+const thingStore = useThingStore();
+const storageStore = useStorageStore();
+const tagStore = useTagStore();
+
+const { storageId, storage, storagesAll } = storeToRefs(storageStore);
+const { tags } = storeToRefs(tagStore);
 
 const message = useMessage();
 
 const modalWidth = ref('90%');
 
+const inputNameRef = ref<InputInst | null>(null)
+
+const canvasBoxRef = ref<InstanceType<typeof CanvasBox> | null>(null);
+const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
+
+const canvasWidth = 300;
+const canvasHeight = 333;
+
 const formRef = ref<FormInst | null>(null)
 
 const formValue = ref<IThingForm>({
-  name: props.thing.name,
-  stock: props.thing.stock,
-  description: props.thing.description,
-  tags: props.thing.tags?.map(t => t.id) || [],
-  storageId: props.thing.storage.id
+  name: thingStore.thing?.name,
+  stock: thingStore.thing?.stock,
+  description: thingStore.thing?.description,
+  tags: thingStore.thing?.tags?.map((t: { id: string; }) => t.id) || [],
+  storageId: thingStore.thing?.storage.id
 });
 
 const formRules = {
@@ -118,15 +125,15 @@ const formRules = {
   }
 }
 
-const tagInput = ref('');
-
 const dbTags = ref<ILocalTag[]>([]);
 const createdTags = ref<ILocalTag[]>([]);
 const selectedTags = ref<ILocalTag[]>([]);
 const removedTags = ref<ILocalTag[]>([]);
 
-const tags = useCollection(tagService.tagsQuery);
-const storages = useCollection(storageService.storagesColRef);
+const show = computed({
+  get: () => props.showModal,
+  set: (value: boolean) => emit('update:showModal', value)
+});
 
 const tagOptions = computed(() => {
   // Filter out the locally created ones since they are already internally added
@@ -139,39 +146,24 @@ const tagOptions = computed(() => {
   return [...new Set([...filteredSelectedTags, ...filteredDbTags])];
 });
 
-const drawStorageId = ref('xixi');
-  
-const storageDoc = computed(() =>
-  doc(storageService.storagesColRef, drawStorageId.value)
-)
+const storageOptions = computed(() => buildNestedStorage(storagesAll.value as (IStorage)[]));
 
-const storage = useDocument(storageDoc);
+onMounted(() => {
+  updateModalWidth()
+  searchTags();
 
-const isDrawer = ref(false);
+  selectedTags.value = thingStore.thing?.tags?.map((t: { name: string; id: string; }) => ({label: t.name, value: t.id})) || [];
+  drawStorage();
+  window.addEventListener('resize', updateModalWidth)
+})
 
-const selectedDrawer = computed({
-  get: () => isDrawer.value ? formValue.value.storageId : '',
-  set: (value: string) => {
-    isDrawer.value = true;
-    formValue.value.storageId = value 
-  }
-});
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateModalWidth)
+})
 
-const inputNameRef = ref<InputInst | null>(null)
-
-const canvasBoxRef = ref<InstanceType<typeof CanvasBox> | null>(null);
-const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
-
-const canvasWidth = 250;
-const canvasHeight = 300;
-
-const storageOptions = computed(() => buildNestedStorage(storages.value as (IContainer)[]));
-
-const buildNestedStorage = (storages: (IContainer)[], parentId: string | undefined = undefined) => {
+const buildNestedStorage = (storages: (IStorage)[], parentId: string | undefined = undefined) => {
   const sortedStorages = [...storages].sort((a, b) => {
-    if (a.name < b.name) return -1;
-    if (a.name > b.name) return 1;
-    return 0;
+    return a.name.localeCompare(b.name, undefined, { numeric: true });
   });
 
   const children: CascaderOption[] = sortedStorages
@@ -185,27 +177,6 @@ const buildNestedStorage = (storages: (IContainer)[], parentId: string | undefin
   return children.length > 0 ? children : undefined;
 };
 
-watch(tags, (newTags) => {
-  dbTags.value = newTags.map(tag => ({
-    label: tag.name,
-    value: tag.id
-  }));
-}, { immediate: true });
-
-watch(storage.pending, async (pending) => {
-  if (!pending && storage.value) {
-    await nextTick();
-    drawStorage();
-  }
-});
-
-watch(storages.pending, async (pending) => {
-  if (!pending && storages.value) {
-    await nextTick();
-    handleStorageUpdate();
-  }
-});
-
 const updateModalWidth = () => {
   const width = window.innerWidth;
   if (width > 1200) {
@@ -217,24 +188,8 @@ const updateModalWidth = () => {
   }
 }
 
-onMounted(() => {
-  updateModalWidth()
-  searchTags();
-
-  selectedTags.value = props.thing.tags?.map(t => ({label: t.name, value: t.id})) || [];
-  // If storages are already loaded then set the storage id
-  if(storages.value.length > 0)  handleStorageUpdate();
-
-  window.addEventListener('resize', updateModalWidth)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateModalWidth)
-})
-
 const searchTags = async (value: string = '') => {
-  tagInput.value = value;
-  await tagService.searchTags(value);
+  await tagStore.searchTags(value);
 };
 
 const handleTagUpdate = (_tagsValue: string[], tags: ILocalTag[]) => {
@@ -262,25 +217,14 @@ const handleTagUpdate = (_tagsValue: string[], tags: ILocalTag[]) => {
   selectedTags.value = [...tags];
 };
 
-const handleStorageUpdate = async() => {
-  await nextTick();
-  let storage = storages.value.find(s => s.id === formValue.value.storageId) as IStorage;
-  // ToDo: redo logic
-  drawStorageId.value = 'xixi';
-  isDrawer.value = storage?.type === 'drawer';
-
-  drawStorageId.value = isDrawer.value ? storage.parent.id : storage.id;
+const handleStorageUpdate = async(id: string) => {
+  storageId.value = 'xixi';
+  storageId.value = id;
 }
 
 const drawStorage = async () => {
-  switch (storage.value?.type) {
-    case 'cabinet':
-      canvasCabinetRef.value?.draw(storage.value as ICabinet);
-      break;
-    case 'box':
-      canvasBoxRef.value?.draw(storage.value as IBox);
-      break;
-  }
+  canvasCabinetRef.value?.draw();
+  canvasBoxRef.value?.draw();
 };
 
 const createTagLocal = (tag: ILocalTag) => {
@@ -298,31 +242,30 @@ const updateThing = async (e: MouseEvent) => {
     }
   })
 
-  const storageId = formValue.value.storageId;
-  const storageType = storages.value.find(s => s.id === storageId)?.type;
+  const stgId = formValue.value.storageId;
+  const storageType = storagesAll.value.find(s => s.id === stgId)?.type;
 
-  if(!storageId) return;
+  if(!stgId) return;
 
   if(storageType === "cabinet") {
     message.error('Please select a drawer.');
     return;
   }
   
-  const thing: IUpdateThing = {
-    id: props.thing.id,
+  const updateThing: IUpdateThing = {
+    id: thingStore.thing?.id,
     name: formValue.value.name,
     stock: formValue.value.stock,
     description: formValue.value.description,
     createdTags: createdTags.value,
     tags: selectedTags.value.filter(selTag => selTag.value != selTag.label),
     removedTags: removedTags.value,
-    storage: storageId,
-    oldStorage: props.thing.storage.id
+    storage: stgId,
+    oldStorage: thingStore.thing?.storage.id
   }
 
   try {
-    await thingService.updateThing(thing);
-    emit('update:storageId', storageId);
+    await thingStore.updateThing(updateThing);
     message.success('Thing updated successfully.');
     closeModal();
   } catch {
@@ -333,6 +276,20 @@ const updateThing = async (e: MouseEvent) => {
 const closeModal = (value: boolean = false) => {
   show.value = value;
 }
+
+watch(tags, (newTags) => {
+  dbTags.value = newTags.map(tag => ({
+    label: tag.name,
+    value: tag.id
+  }));
+}, { immediate: true });
+
+watch(storage.pending, async (pending) => {
+  if (!pending && storage.value) {
+    formValue.value.storageId = storage.value.id;
+    drawStorage();
+  }
+});
 
 </script>
 
@@ -357,5 +314,4 @@ const closeModal = (value: boolean = false) => {
   display: flex
   justify-content: center
   align-items: center
-
 </style>

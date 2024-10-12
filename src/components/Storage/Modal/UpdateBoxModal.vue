@@ -43,81 +43,49 @@
 <script setup lang="ts">
 import type { FormInst } from "naive-ui";
 import { useMessage } from "naive-ui";
+import { storeToRefs } from 'pinia';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
-import { useCollection } from "vuefire";
 
-import { IBox, IStorageThings, IUpdateBoxForm, IUpdateBox, IDrawBox } from "../../../models/storage.model";
+import { IBox, IDrawBox, IStorageThings, IUpdateBox, IUpdateBoxForm } from "../../../models/storage.model";
+import { useStorageStore } from '../../../stores/storage';
 import CanvasBox from "../../Canvas/CanvasBox.vue";
-
-import storageService from "../../../services/storage.service";
 
 const props = defineProps<{
   showModal: boolean;
-  storage: IBox;
 }>();
 
 const emit = defineEmits<{
   (e: "update:showModal", value: boolean): void;
 }>();
 
-const show = computed({
-  get: () => props.showModal,
-  set: (value: boolean) => emit("update:showModal", value),
-});
-
 const canvasBoxRef = ref<InstanceType<typeof CanvasBox> | null>(null);
 
 const message = useMessage();
+
+const storageStore = useStorageStore();
+const { storage } = storeToRefs(storageStore);
 
 const modalWidth = ref("90%");
 
 const canvasWidth = 350;
 const canvasHeight = 380;
 
-const storages = useCollection(storageService.storagesWithThings);
-
-const storageOptions = computed(() => {
-  const temp = storages.value.reduce((result, storage) => {
-    const sameStorage = storage.id === props.storage.id;
-    const parentIsStorage = storage?.parent?.id === props.storage.id;
-    // Make sure user cannot choose the storage itself and another storage that is the child of the storage itself
-    if (!sameStorage && !parentIsStorage) {
-      result.push({
-        value: storage.id,
-        label: buildLabel(storage as IBox)
-      });
-    }
-    return result;
-  }, []);
-  
-  return temp;
-});
-
-const buildLabel = (storage: IBox): string => {
-  if (storage?.parent) {
-    return `${buildLabel(storage.parent as IStorageThings)} / ${storage.name}`;
-  } else {
-    return storage?.name;
-  }
-};
-
 const materialOptions = [
   { label: "Plastic", value: "plastic" },
   { label: "Cardboard", value: "cardboard" },
 ];
 
-
 const formRef = ref<FormInst | null>(null);
 
 const formValue = ref<IUpdateBoxForm>({
-  name: props.storage.name,
-  description: props.storage.description,
-  material: props.storage.material,
-  x_units: props.storage.x_units,
-  y_units: props.storage.y_units,
-  parent: props.storage.parent?.id || '',
-  depth: props.storage.depth,
-  boxLid: props.storage.lid,
+  name: storage.value?.name,
+  description: storage.value?.description,
+  material: storage.value?.material,
+  x_units: storage.value?.x_units,
+  y_units: storage.value?.y_units,
+  parent: storage.value?.parent?.id || '',
+  depth: storage.value?.depth,
+  boxLid: storage.value?.lid,
 });
 
 const formRules = {
@@ -126,6 +94,47 @@ const formRules = {
     message: "Please input the storage's name",
     trigger: ["input", "blur"],
   },
+};
+
+const show = computed({
+  get: () => props.showModal,
+  set: (value: boolean) => emit("update:showModal", value),
+});
+
+const storageOptions = computed(() => {
+  const temp = storageStore.storagesThings.reduce((result, item) => {
+    const sameStorage = item.id === storage.value?.id;
+    const parentIsStorage = item?.parent?.id === storage.value?.id
+    // Make sure user cannot choose the storage itself and another storage that is the child of the storage itself
+    if (!sameStorage && !parentIsStorage) {
+      result.push({
+        value: item.id,
+        label: buildLabel(item as IBox)
+      });
+    }
+    return result;
+  }, []);
+  
+  return temp.sort((a: { label: string; }, b: { label: string; }) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));;
+});
+
+onMounted(() => {
+  updateModalWidth();
+
+  drawStorage();
+  window.addEventListener("resize", updateModalWidth);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", updateModalWidth);
+});
+
+const buildLabel = (storage: IBox): string => {
+  if (storage?.parent) {
+    return `${buildLabel(storage.parent as IStorageThings)} / ${storage.name}`;
+  } else {
+    return storage?.name;
+  }
 };
 
 const updateModalWidth = () => {
@@ -143,17 +152,6 @@ const closeModal = (value: boolean = false) => {
   show.value = value;
 };
 
-onMounted(() => {
-  updateModalWidth();
-
-  drawStorage();
-  window.addEventListener("resize", updateModalWidth);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("resize", updateModalWidth);
-});
-
 // Update existing storage
 const updateStorage = async (e: MouseEvent) => {
   e.preventDefault();
@@ -165,7 +163,7 @@ const updateStorage = async (e: MouseEvent) => {
   });
 
   const box: IUpdateBox = {
-    id: props.storage.id,
+    id: storage.value?.id,
     name: formValue.value.name,
     description: formValue.value.description,
     material: formValue.value.material,
@@ -174,11 +172,11 @@ const updateStorage = async (e: MouseEvent) => {
     depth: formValue.value.depth,
     lid: formValue.value.boxLid,
     parentId: formValue.value.parent,
-    oldParentId: props.storage.parent?.id
+    oldParentId: storage.value?.parent?.id
   };
 
   try {
-    await storageService.updateStorageBox(box);
+    await storageStore.updateStorageBox(box);
     message.success('Box updated successfully.');
     closeModal();
 

@@ -1,36 +1,16 @@
 <template>
   <n-modal :show="show" @update:show="closeModal" preset="card" title="Thing" :style="{ width: modalWidth }" :mask-closable="false">
-    <!-- <n-thing content-style="margin-top: 10px;">
-      <template #header>
-        {{ thing?.name }}
-      </template>
-      {{ thing?.description }}
-      <template #footer>
-        <n-space size="small" style="margin-top: 4px">
-          <n-tag v-for="tag in thing?.tags" :key="tag.id" :bordered="false" type="info" size="small">
-            {{ tag.name }}
-          </n-tag>
-        </n-space>
-      </template>
-    </n-thing> -->
     <n-descriptions label-placement="top" :column="2">
       <n-descriptions-item>
-        <template #label>
-          <n-text type="warning">Name</n-text>
-        </template>
+        <template #label><n-text type="warning">Name</n-text></template>
         {{ thing?.name }}
       </n-descriptions-item>
       <n-descriptions-item>
-        <template #label>
-          <n-text type="warning">Qty</n-text>
-        </template>
+        <template #label><n-text type="warning">Qty</n-text></template>
         {{ thing?.stock }}
       </n-descriptions-item>
-      <n-descriptions-item>
-        <template #label>
-          <n-text type="warning">Tags</n-text>
-        </template>
-        <n-space v-if="thing?.tags.length > 0" size="small" style="margin-top: 4px">
+      <n-descriptions-item><template #label><n-text type="warning">Tags</n-text></template>
+        <n-space v-if="thing?.tags?.length > 0" size="small" style="margin-top: 4px">
           <n-tag v-for="tag in thing?.tags" :key="tag.id" :bordered="false" type="info" size="small">
             {{ tag.name }}
           </n-tag>
@@ -38,9 +18,7 @@
         <div v-else>None</div>
       </n-descriptions-item>
       <n-descriptions-item>
-        <template #label>
-          <n-text type="warning">Description</n-text>
-        </template>
+        <template #label><n-text type="warning">Description</n-text></template>
         {{ thing?.description }}
       </n-descriptions-item>
     </n-descriptions>
@@ -49,9 +27,9 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { useDocument } from "vuefire";
+import { storeToRefs } from 'pinia';
 
-import thingService from '../../../services/thing.service';
+import { useThingStore } from '../../../stores/thing';
 
 const props = defineProps<{
   showModal: boolean;
@@ -61,15 +39,24 @@ const emit = defineEmits<{
   (e: 'update:showModal', value: boolean): void;
 }>();
 
+const thingStore = useThingStore();
+const { thing } = storeToRefs(thingStore);
+
+const modalWidth = ref('30%');
+
 const show = computed({
   get: () => props.showModal,
   set: (value: boolean) => emit('update:showModal', value)
 });
 
-const modalWidth = ref('30%');
+onMounted(() => {
+  updateModalWidth()
+  window.addEventListener('resize', updateModalWidth)
+})
 
-const thingQuery = thingService.thingQuery;
-const thing = useDocument(thingQuery);
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateModalWidth)
+})
 
 const updateModalWidth = () => {
   const width = window.innerWidth;
@@ -85,16 +72,6 @@ const updateModalWidth = () => {
 const closeModal = (value: boolean = false) => {
   show.value = value;
 }
-
-onMounted(() => {
-  updateModalWidth()
-  window.addEventListener('resize', updateModalWidth)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateModalWidth)
-})
-
 </script>
 
 <style scoped lang="sass">

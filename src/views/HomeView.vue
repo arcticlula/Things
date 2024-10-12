@@ -4,24 +4,14 @@
       Things
     </n-gradient-text>
     <n-button secondary circle type="primary">
-      <template #icon>
-        <n-icon :component="SettingsSharp"></n-icon>
-      </template>
+      <template #icon><n-icon :component="SettingsSharp"></n-icon></template>
     </n-button>
   </n-space>
   <div class="search-things">
     <n-grid cols="24" item-responsive responsive="screen">
       <n-gi span="11">
         <n-input-group>
-          <!-- <n-radio-group v-model:value="searchType">
-            <n-radio-button
-              v-for="opt in searchOptions"
-              :key="opt.value"
-              :value="opt.value"
-              :label="opt.label"
-            />
-          </n-radio-group> -->
-          <n-select v-model:value="searchType" :style="{ width: '120px' }" :options="searchOptions" />
+          <n-select v-model:value="searchType" :style="{ width: '150px' }" :options="searchOptions" />
           <n-input v-model:value="searchValue" type="text" :placeholder="searchPlaceholder" />
         </n-input-group>
       </n-gi>
@@ -30,15 +20,13 @@
       </n-gi>
       <n-gi span="7" offset="1" style="justify-self: self-end;">
         <n-button strong secondary type="info" @click="showCreateStorageModal = true" style="margin-right: 4px;">Create Storage</n-button>
-        <n-button strong secondary type="info" @click="showCreateThingModal = true">Create Thing</n-button>
+        <n-button strong secondary type="info" @click="openCreateThingModal()">Create Thing</n-button>
       </n-gi>
       <n-gi span="24" class="search-things-tabs">
         <div v-if="searchType === 'things'">
-            <ThingsView></ThingsView>
+          <ThingsView />
         </div>
-        <div v-else>
-            <StoragesView></StoragesView>
-        </div>
+        <div v-else><StoragesView /></div>
       </n-gi>
     </n-grid>
   </div>
@@ -48,36 +36,66 @@
 </template>
 
 <script lang="ts" setup>
-  import { SettingsSharp } from '@vicons/ionicons5';
-  import { computed, ref } from 'vue';
-  import ThingsView from "../views/ThingsView.vue";
-  import StoragesView from "../views/StoragesView.vue";
+import { SettingsSharp } from '@vicons/ionicons5';
+import { useMessage } from "naive-ui";
+import { storeToRefs } from 'pinia';
+import { computed, onMounted, ref, watch } from 'vue';
 
-  import thingService from '../services/thing.service';
-  import storageService from '../services/storage.service';
+import StoragesView from "../views/StoragesView.vue";
+import ThingsView from "../views/ThingsView.vue";
 
-  // State variables
-  const showCreateThingModal = ref(false);
-  const showCreateStorageModal = ref(false);
-  
-  const searchType = ref('things');
-  const searchValue = ref('');
-  const searchPlaceholder = computed(() => searchType.value === 'things' ? 'Search Things...' : 'Search Storages...');
+import { useStorageStore } from '../stores/storage';
+import { useThingStore } from '../stores/thing';
 
-  const searchOptions = ref([
-    { label: 'Things',  value: 'things'},
-    { label: 'Storages', value: 'storages' }
-  ]);
+const thingStore = useThingStore();
+const storageStore = useStorageStore();
 
-  const search = async () => {
-    if(searchType.value === 'things') {
-      await thingService.searchThings(searchValue.value);
-    }
-    else if(searchType.value === 'storages') {
-      await storageService.searchStorages(searchValue.value);
-    }
+const { thingId } = storeToRefs(thingStore);
+const { storageId, storagesAll } = storeToRefs(storageStore);
+
+const message = useMessage();
+
+// State variables
+const showCreateThingModal = ref(false);
+const showCreateStorageModal = ref(false);
+
+const searchType = ref('things');
+const searchValue = ref('');
+
+const searchOptions = ref([
+  { label: 'Things',  value: 'things'},
+  { label: 'Storages', value: 'storages' }
+]);
+
+const searchPlaceholder = computed(() => searchType.value === 'things' ? 'Search Things...' : 'Search Storages...');
+
+onMounted(() => {
+  search();
+})
+
+const search = async () => {
+  if(searchType.value === 'things') {
+    await thingStore.searchThings(searchValue.value);
   }
+  else if(searchType.value === 'storages') {
+    await storageStore.searchStorages(searchValue.value);
+  }
+}
 
+const openCreateThingModal = () => {
+  if(storagesAll.value.length === 0) {
+    message.warning("You have to create a storage first.");
+    return;
+  }
+  showCreateThingModal.value = true;
+}
+
+watch(searchType, () => {
+  thingId.value = 'xixi';
+  storageId.value = 'xixi';
+  searchValue.value = '';
+  search();
+});
 </script>
 
 

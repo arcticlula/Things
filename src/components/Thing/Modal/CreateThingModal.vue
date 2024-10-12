@@ -13,37 +13,20 @@
             <n-input v-model:value="formValue.description" type="textarea" placeholder="Enter description..." />
           </n-form-item-gi>
           <n-form-item-gi span="24 m:24" label="Tags" path="tags">
-            <n-select
-              :value="formValue.tags"
-              placeholder="Select or add tags"
-              multiple
-              filterable
-              tag
-              @search="searchTags"
-              @update:value="handleTagUpdate"
-              :options="tagOptions"
-            />
+            <n-select :value="formValue.tags" placeholder="Select or add tags" multiple filterable tag @search="searchTags" @update:value="handleTagUpdate" :options="tagOptions" />
           </n-form-item-gi>
           <n-form-item-gi span="24 m:24" label="Storage" path="storageId">
-            <n-cascader
-              v-model:value="formValue.storageId"
-              placeholder="Add to storage"
-              check-strategy="all"
-              label-field="name"
-              value-field="id"
-              @update:value="handleStorageUpdate"
-              :options="storageOptions"
-            />
+            <n-cascader v-model:value="formValue.storageId" placeholder="Add to storage" check-strategy="all" label-field="name" value-field="id" @update:value="handleStorageUpdate" :options="storageOptions" />
           </n-form-item-gi>
         </n-grid>
       </n-form>
-      <n-card class="create-thing-canvas" :style="{ width: canvasWidth + 50 + 'px', height: canvasHeight + 42 + 'px' }">
-        <CanvasBox v-if="storage.type === 'box'" ref="canvasBoxRef" :c_width="canvasWidth" :c_height="canvasHeight" />
-        <CanvasCabinet v-else-if="storage.type === 'cabinet'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" v-model:selectedDrawer="selectedDrawer"/>    
-        <div class="create-thing-canvas-empty" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }" v-else>   
+      <div class="create-thing-canvas">
+        <div class="create-thing-canvas-empty" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }" v-if="!formValue.storageId">   
           <n-empty description="No storage selected" />
         </div> 
-      </n-card>
+        <CanvasBox v-else-if="storage?.type === 'box'" ref="canvasBoxRef" :c_width="canvasWidth" :c_height="canvasHeight" />
+        <CanvasCabinet v-else-if="storage?.type !== 'box'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" canSelect />    
+      </div>
     </div>
     <n-space justify="end" :style="{ width: '100%', 'margin-top': '16px' }">
       <n-button type="primary" @click="createThing($event, true)">Save</n-button>
@@ -56,19 +39,20 @@
 <script setup lang="ts">
 import type { CascaderOption, FormInst, InputInst } from 'naive-ui';
 import { useMessage } from 'naive-ui';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, Ref, watch } from 'vue';
-import { useCollection } from "vuefire";
+import { storeToRefs } from 'pinia';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
-import { IContainer, IStorage } from '../../../models/storage.model';
+import { IStorage } from '../../../models/storage.model';
 import { ILocalTag } from '../../../models/tag.model';
 import { ICreateThing, IThingForm } from '../../../models/thing.model';
 
-import storageService from '../../../services/storage.service';
-import tagService from '../../../services/tag.service';
-import thingService from '../../../services/thing.service';
+import { useStorageStore } from '../../../stores/storage';
+import { useTagStore } from '../../../stores/tag';
+import { useThingStore } from '../../../stores/thing';
 
 import CanvasBox from '../../Canvas/CanvasBox.vue';
 import CanvasCabinet from '../../Canvas/CanvasCabinet.vue';
+
 
 const props = defineProps<{
   showModal: boolean;
@@ -78,24 +62,24 @@ const emit = defineEmits<{
   (e: 'update:showModal', value: boolean): void;
 }>();
 
-const show = computed({
-  get: () => props.showModal,
-  set: (value: boolean) => emit('update:showModal', value)
-});
+const thingStore = useThingStore();
+const storageStore = useStorageStore();
+const tagStore = useTagStore();
 
-const isDrawer = ref(false);
-
-const selectedDrawer = computed({
-  get: () => isDrawer.value ? formValue.value.storageId : '',
-  set: (value: string) => {
-    isDrawer.value = true;
-    formValue.value.storageId = value 
-  }
-});
+const { storageId, storage, storagesAll } = storeToRefs(storageStore);
+const { tags } = storeToRefs(tagStore);
 
 const message = useMessage();
 
 const modalWidth = ref('90%');
+
+const inputNameRef = ref<InputInst | null>(null)
+
+const canvasBoxRef = ref<InstanceType<typeof CanvasBox> | null>(null);
+const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
+
+const canvasWidth = 300;
+const canvasHeight = 330;
 
 const formRef = ref<FormInst | null>(null)
 
@@ -126,14 +110,14 @@ const formRules = {
   }
 }
 
-const tagInput = ref('');
-
 const dbTags = ref<ILocalTag[]>([]);
 const createdTags = ref<ILocalTag[]>([]);
 const selectedTags = ref<ILocalTag[]>([]);
 
-const tags = useCollection(tagService.tagsQuery);
-const storages = useCollection(storageService.storagesColRef);
+const show = computed({
+  get: () => props.showModal,
+  set: (value: boolean) => emit('update:showModal', value)
+});
 
 const tagOptions = computed(() => {
   // Filter out the locally created ones since they are already internally added
@@ -146,23 +130,21 @@ const tagOptions = computed(() => {
   return [...new Set([...filteredSelectedTags, ...filteredDbTags])];
 });
 
-const storage: Ref<IContainer> = ref({} as IContainer);
+const storageOptions = computed(() => buildNestedStorage(storagesAll.value as (IStorage)[]));
 
-const inputNameRef = ref<InputInst | null>(null)
+onMounted(() => {
+  updateModalWidth()
+  searchTags();
+  window.addEventListener('resize', updateModalWidth)
+})
 
-const canvasBoxRef = ref<InstanceType<typeof CanvasBox> | null>(null);
-const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
-
-const canvasWidth = 250;
-const canvasHeight = 300;
-
-const storageOptions = computed(() => buildNestedStorage(storages.value as (IStorage)[]));
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateModalWidth)
+})
 
 const buildNestedStorage = (storages: (IStorage)[], parentId: string | undefined = undefined) => {
   const sortedStorages = [...storages].sort((a, b) => {
-    if (a.name < b.name) return -1;
-    if (a.name > b.name) return 1;
-    return 0;
+    return a.name.localeCompare(b.name, undefined, { numeric: true });
   });
 
   const children: CascaderOption[] = sortedStorages
@@ -176,13 +158,6 @@ const buildNestedStorage = (storages: (IStorage)[], parentId: string | undefined
   return children.length > 0 ? children : undefined;
 };
 
-watch(tags, (newTags) => {
-  dbTags.value = newTags.map(tag => ({
-    label: tag.name,
-    value: tag.id
-  }));
-}, { immediate: true });
-
 const updateModalWidth = () => {
   const width = window.innerWidth;
   if (width > 1200) {
@@ -194,19 +169,8 @@ const updateModalWidth = () => {
   }
 }
 
-onMounted(() => {
-  updateModalWidth()
-  searchTags();
-  window.addEventListener('resize', updateModalWidth)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateModalWidth)
-})
-
 const searchTags = async (value: string = '') => {
-  tagInput.value = value;
-  await tagService.searchTags(value);
+  await tagStore.searchTags(value);
 };
 
 const handleTagUpdate = (_tagsValue: string[], tags: ILocalTag[]) => {
@@ -236,29 +200,21 @@ const handleTagUpdate = (_tagsValue: string[], tags: ILocalTag[]) => {
   selectedTags.value = [...tags];
 };
 
-const handleStorageUpdate = async (storageId: string) => {
-  let temp = storages.value.find(s => s.id === storageId) as IStorage;
-  switch (temp?.type) {
-    case 'drawer':
-      isDrawer.value = true;
-      if(temp.parent) {
-        storage.value = temp.parent as IContainer;
-      }
-      await nextTick();
-      canvasCabinetRef.value?.draw(storage.value);
-      break;
-    case 'cabinet':
-      isDrawer.value = false;
-      storage.value = temp;
-      await nextTick();
-      canvasCabinetRef.value?.draw(storage.value);
-      break;
-    case 'box':
-      storage.value = temp;
-      await nextTick();
-      canvasBoxRef.value?.draw(storage.value);
-      break;
+const handleStorageUpdate = async (id: string) => {
+  storageId.value = 'xixi';
+  storageId.value = id;
+};
+
+watch(storage.pending, async (pending) => {
+  if (!pending && storage.value) {
+    formValue.value.storageId = storage.value.id;
+    drawStorage();
   }
+});
+
+const drawStorage = async () => {
+  canvasCabinetRef.value?.draw();
+  canvasBoxRef.value?.draw();
 };
 
 const createTagLocal = (tag: ILocalTag) => {
@@ -277,7 +233,7 @@ const createThing = async (e: MouseEvent, stayOpen = false) => {
   })
 
   const storageId = formValue.value.storageId;
-  const storageType = storages.value.find(s => s.id === storageId)?.type;
+  const storageType = storagesAll.value.find(s => s.id === storageId)?.type;
 
   if(!storageId) return;
 
@@ -296,7 +252,7 @@ const createThing = async (e: MouseEvent, stayOpen = false) => {
   }
 
   try {
-    await thingService.createThing(thing);
+    await thingStore.createThing(thing);
     message.success('Thing created successfully.');
     if (!stayOpen) {
       closeModal();
@@ -323,6 +279,13 @@ const clearModal = () => {
   inputNameRef.value?.focus()
 }
 
+watch(tags, (newTags) => {
+  dbTags.value = newTags.map(tag => ({
+    label: tag.name,
+    value: tag.id
+  }));
+}, { immediate: true });
+
 </script>
 
 <style scoped lang="sass">
@@ -339,12 +302,11 @@ const clearModal = () => {
   display: flex
   justify-content: center
   align-self: center
-  background-color: rgba(255, 255, 255, 0.1)
+  background-color: rgba(255, 255, 255, 0.05)
   margin: 8px
 
 .create-thing-canvas-empty
   display: flex
   justify-content: center
   align-items: center
-
 </style>

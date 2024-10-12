@@ -10,9 +10,9 @@ const storagesColRef = collection(db, 'storages');
 
 const storageQuery = ref();
 const storagesQuery = ref();
-const storagesMainQuery = ref();
+const containersQuery = ref();
 
-const storagesWithThings = query(storagesColRef,
+const storagesThingsQuery = query(storagesColRef,
   where('type', 'in', ['drawer', 'box'])
 );
 
@@ -33,7 +33,7 @@ const searchStorages = async (value: string) => {
       where('name_lower', '>=', searchStr),
       where('name_lower', '<=', searchStr + '\uf8ff')
     );
-    storagesMainQuery.value = query(storagesColRef,
+    containersQuery.value = query(storagesColRef,
       where('type', 'in', ['cabinet', 'box']),
       where('name_lower', '>=', searchStr),
       where('name_lower', '<=', searchStr + '\uf8ff')
@@ -41,7 +41,7 @@ const searchStorages = async (value: string) => {
   } 
   else {
     storagesQuery.value = storagesColRef;
-    storagesMainQuery.value = query(storagesColRef, where('type', 'in', ['cabinet', 'box']));
+    containersQuery.value = query(storagesColRef, where('type', 'in', ['cabinet', 'box']));
   }
 };
 
@@ -138,9 +138,9 @@ const updateDrawers = (transaction: Transaction, drawers: IUpdateDrawer[]) => {
       name: d.name,
       name_lower: d.name.toLowerCase(),
       name_number: calculateT9(d.name),
-      description: d.description
+      description: d.description || '',
     };
-
+    
     transaction.update(drawerDocRef, drawer);
   }
 };
@@ -214,8 +214,8 @@ export default {
   storagesColRef,
   storageQuery,
   storagesQuery,
-  storagesMainQuery,
-  storagesWithThings,
+  containersQuery,
+  storagesThingsQuery,
   getStorageById,
   selectStorageById,
   searchStorages,

@@ -10,21 +10,10 @@
               <n-input v-model:value="formValue.description" type="textarea" placeholder="Enter description..." />
             </n-form-item-gi>
             <n-form-item-gi :span="formLayout.typeSpan" label="Type" path="type">
-              <n-cascader
-                v-model:value="typeMaterial"
-                placeholder="Select type/material of storage"
-                check-strategy="child"
-                :options="typeOptions"
-                @update:value="resetDrawersAndRedraw"
-              />
+              <n-cascader v-model:value="typeMaterial" placeholder="Select type/material of storage" check-strategy="child" :options="typeOptions" @update:value="resetDrawersAndRedraw" />
             </n-form-item-gi>
             <n-form-item-gi v-if="type === 'box'" span="12" :offset="1" label="Does it have a papa?" path="parent">
-              <n-select
-                v-model:value="formValue.parent"
-                placeholder="Does it have a papa?"
-                filterable
-                :options="storageOptions"
-              />
+              <n-select v-model:value="formValue.parent" placeholder="Does it have a papa?" filterable :options="storageOptions" />
             </n-form-item-gi>
             <n-form-item-gi :span="formLayout.xSpan" :offset="formLayout.xOffset" :label="formLayout.xLabel">
               <n-input-number v-model:value="formValue.x_units" min="1" @update:value="drawStorage" :validator="validateX"/>
@@ -69,13 +58,10 @@
             </n-form-item-gi>
           </n-grid>
         </n-form>
-        <n-card class="create-storage-canvas" :style="{ width: canvasWidth + 50 + 'px', height: canvasHeight + 42 + 'px' }">
+        <div class="create-storage-canvas">
           <CanvasBox v-if="type === 'box'" ref="canvasBoxRef" :c_width="canvasWidth" :c_height="canvasHeight" />
           <CanvasCabinet v-else-if="type === 'cabinet'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" />    
-          <div class="create-storage-canvas-empty" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }" v-else>   
-            <n-empty description="No storage selected" />
-          </div> 
-        </n-card>
+        </div>
       </div>
       <n-space justify="end" :style="{ width: '100%', 'margin-top': '16px' }">
         <n-button type="primary" @click="createStorage">Save</n-button>
@@ -88,15 +74,13 @@
 import Undo from '@vicons/carbon/Undo';
 import type { CascaderOption, FormInst } from 'naive-ui';
 import { useMessage } from 'naive-ui';
+import { storeToRefs } from 'pinia';
 import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref } from 'vue';
-import { useCollection } from "vuefire";
 
 import { IContainer, ICreateBox, ICreateCabinet, ICreateDrawer, ICreateStorageForm, IDrawBox, IDrawCabinet, IMaterial, ITypeContainer } from '../../../models/storage.model';
+import { useStorageStore } from '../../../stores/storage';
 import CanvasBox from '../../Canvas/CanvasBox.vue';
 import CanvasCabinet from '../../Canvas/CanvasCabinet.vue';
-
-import storageService from '../../../services/storage.service';
-
 
 const props = defineProps<{
   showModal: boolean;
@@ -116,59 +100,26 @@ const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
 
 const message = useMessage();
 
+const storageStore = useStorageStore();
+const { storagesThings } = storeToRefs(storageStore);
+
 const modalWidth = ref('90%');
 
-const canvasWidth = 300;
-const canvasHeight = 338;
+const canvasWidth = 350;
+const canvasHeight = 380;
+
 const type: Ref<ITypeContainer> = ref('cabinet');
 let lastType: ITypeContainer = 'cabinet';
 const material: Ref<IMaterial> = ref('plastic');
-
 const drawers = ref<ICreateDrawer[]>([]);
 const drawerHistory = ref<ICreateDrawer[][]>([]); // History of drawer arrays
-
-const storages = useCollection(storageService.storagesWithThings);
-
-const typeMaterial = computed<string>({
-  get: (): string  => `${type.value}-${material.value}`,
-  set: (value) => [type.value, material.value] = value.split('-') as [ITypeContainer, IMaterial]});
-
-const storageOptions = computed(() => {
-  return storages.value.map((storage) => {
-    return {
-      value: storage.id,
-      label: buildLabel(storage as IContainer),
-    }
-  })
-});
-
-const buildLabel = (storage: IContainer): string => {
-  if(storage?.parent) {
-    return `${buildLabel(storage.parent as IContainer)} / ${storage.name}`;
-  }
-  else {
-    return storage?.name;
-  }
-}
-
-const typeOptions: CascaderOption[] = [
-  { label:'Cabinet', value: 'cabinet', children: [ 
-    { label:'Plastic', value: 'cabinet-plastic' }, 
-    { label:'Wood', value: 'cabinet-wood' }, 
-    { label:'Metal', value: 'cabinet-metal' }
-  ]},
-  { label:'Box', value: 'box', children: [
-    { label:'Plastic', value: 'box-plastic' }, 
-    { label:'Cardboard', value: 'box-cardboard' } 
-  ]}
-];
 
 const formRef = ref<FormInst | null>(null)
 
 const formValue = ref<ICreateStorageForm>({
   name: "",
   description: "",
-  typeMaterial: typeMaterial.value,
+  typeMaterial: 'cabinet-plastic',
   x_units: 3,
   y_units: 7,
   parent: '',
@@ -211,6 +162,51 @@ const formLayoutConfig = {
 
 const formLayout = computed(() => formLayoutConfig[type.value]);
 
+const typeMaterial = computed<string>({
+  get: (): string  => `${type.value}-${material.value}`,
+  set: (value) => [type.value, material.value] = value.split('-') as [ITypeContainer, IMaterial]
+});
+
+const typeOptions: CascaderOption[] = [
+  { label:'Cabinet', value: 'cabinet', children: [ 
+    { label:'Plastic', value: 'cabinet-plastic' }, 
+    { label:'Wood', value: 'cabinet-wood' }, 
+    { label:'Metal', value: 'cabinet-metal' }
+  ]},
+  { label:'Box', value: 'box', children: [
+    { label:'Plastic', value: 'box-plastic' }, 
+    { label:'Cardboard', value: 'box-cardboard' } 
+  ]}
+];
+
+const storageOptions = computed(() => {
+  return storagesThings.value.map((storage) => {
+    return {
+      value: storage.id,
+      label: buildLabel(storage as IContainer),
+    }
+  })
+  .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
+});
+
+onMounted(() => {
+  updateModalWidth();
+
+  window.addEventListener('resize', updateModalWidth)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateModalWidth)
+})
+
+const buildLabel = (storage: IContainer): string => {
+  if(storage?.parent) {
+    return `${buildLabel(storage.parent as IContainer)} / ${storage.name}`;
+  }
+  else {
+    return storage?.name;
+  }
+}
 
 const updateModalWidth = () => {
   const width = window.innerWidth;
@@ -226,16 +222,6 @@ const updateModalWidth = () => {
 const closeModal = (value: boolean = false) => {
   show.value = value;
 }
-
-onMounted(() => {
-  updateModalWidth();
-
-  window.addEventListener('resize', updateModalWidth)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateModalWidth)
-})
 
 // Create a new storage
 const createStorage = async (e: MouseEvent) => {
@@ -277,7 +263,7 @@ const createStorageBox = async () => {
   }
 
   try {
-    await storageService.createStorageBox(box);
+    await storageStore.createStorageBox(box);
     message.success('Box created successfully.');
     closeModal();
 
@@ -298,7 +284,7 @@ const createStorageCabinet = async () => {
   }
 
   try {
-    await storageService.createStorageCabinet(cabinet);
+    await storageStore.createStorageCabinet(cabinet);
     message.success('Cabinet created successfully.');
     closeModal();
   } catch {
@@ -473,7 +459,6 @@ const drawStorage = async () => {
     canvasCabinetRef.value?.draw(cabinet);
   }
 }
-
 </script>
 
 <style scoped lang="sass">
@@ -490,12 +475,7 @@ const drawStorage = async () => {
   display: flex
   justify-content: center
   align-self: center
-  background-color: rgba(255, 255, 255, 0.1)
+  background-color: rgba(255, 255, 255, 0.05)
   margin: 0 8px
-
-.create-storage-canvas-empty
-  display: flex
-  justify-content: center
-  align-items: center
 
 </style>

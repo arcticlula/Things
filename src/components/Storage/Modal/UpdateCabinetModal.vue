@@ -12,11 +12,11 @@
           <n-form-item-gi span="24 m:24" label="Description" path="description">
             <n-input v-model:value="formValue.description" type="textarea" placeholder="Enter description..." clearable/>
           </n-form-item-gi>
-          <!-- <n-form-item-gi span="24">
-            <div style="font-weight: bold;">Drawer</div>
-          </n-form-item-gi> -->
-          <n-form-item-gi span="24" label="Name">
-            <n-input v-model:value="drawerName" :disabled="!isDrawer" @update:value="drawStorage" clearable/>  
+        </n-grid>
+        <h4 style="font-weight: bold;">Update Drawer</h4>
+        <n-grid cols="24" item-responsive responsive="screen">
+          <n-form-item-gi span="24" label="Name" path="drawerName">
+            <n-input v-model:value="drawerName" :disabled="!isDrawer" @update:value="drawStorage" clearable :status="drawerNameValidation"/>  
           </n-form-item-gi>
           <n-form-item-gi span="24" label="Description">
             <n-input v-model:value="drawerDesc" type="textarea" :disabled="!isDrawer" clearable/>  
@@ -24,7 +24,7 @@
         </n-grid>
       </n-form>
       <div class="update-storage-canvas" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }">
-        <CanvasCabinet ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" v-model:selectedDrawer="selectedDrawerId"/>
+        <CanvasCabinet ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" canSelect/>
       </div>
     </div>
     <n-space justify="end" :style="{ width: '100%', 'margin-top': '16px' }">
@@ -37,62 +37,29 @@
 <script setup lang="ts">
 import type { FormInst } from "naive-ui";
 import { useMessage } from "naive-ui";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { storeToRefs } from 'pinia';
 
-import { ICabinet, IUpdateCabinetForm, IDrawCabinet, IUpdateCabinet } from "../../../models/storage.model";
+import { useStorageStore } from '../../../stores/storage';
+import { IUpdateCabinetForm, IDrawCabinet, IUpdateCabinet, ICabinetMaterial, ICabinet, IDrawDrawer, IUpdateDrawer } from "../../../models/storage.model";
 import CanvasCabinet from "../../Canvas/CanvasCabinet.vue";
-
-import storageService from "../../../services/storage.service";
 
 const props = defineProps<{
   showModal: boolean;
-  storage: ICabinet;
-  selectedDrawer: string;
 }>();
 
 const emit = defineEmits<{
   (e: "update:showModal", value: boolean): void;
-  (e: 'update:selectedDrawer', value: string): void;
 }>();
-
-const show = computed({
-  get: () => props.showModal,
-  set: (value: boolean) => emit("update:showModal", value),
-});
-
-const drawerId = ref(props.selectedDrawer);
-
-const selectedDrawerIndex = computed(() => formValue.value.drawers.findIndex(d => d.id === drawerId.value));
-const isDrawer = computed(() => selectedDrawerIndex.value != -1);
-
-const selectedDrawerId = computed({
-  get: () => isDrawer.value ? drawerId.value : '',
-  set: (value: string) => {
-    drawerId.value = value;
-  }
-});
-
-const drawerName = computed({
-  get: () =>  isDrawer.value ? formValue.value.drawers[selectedDrawerIndex.value].name : '',
-  set(value: string) {
-    if (isDrawer.value) {
-      formValue.value.drawers[selectedDrawerIndex.value].name = value;
-    }
-  }
-});
-
-const drawerDesc = computed({
-  get: () => isDrawer.value ? formValue.value.drawers[selectedDrawerIndex.value].description : '',
-  set(value: string) {
-    if (isDrawer.value) {
-      formValue.value.drawers[selectedDrawerIndex.value].description = value;
-    }
-  }
-});
 
 const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
 
 const message = useMessage();
+
+const storageStore = useStorageStore();
+const { storage, storageId } = storeToRefs(storageStore);
+
+const cabinet = ref<ICabinet>();
 
 const modalWidth = ref("90%");
 
@@ -108,10 +75,10 @@ const materialOptions = [
 const formRef = ref<FormInst | null>(null);
 
 const formValue = ref<IUpdateCabinetForm>({
-  name: props.storage.name,
-  description: props.storage.description,
-  material: props.storage.material,
-  drawers: props.storage.drawers
+  name: '',
+  description: '',
+  material: '' as ICabinetMaterial,
+  drawers: []
 });
 
 const formRules = {
@@ -119,8 +86,58 @@ const formRules = {
     required: true,
     message: "Please input the cabinet's name",
     trigger: ["input", "blur"],
-  },
+  }
 };
+
+const show = computed({
+  get: () => props.showModal,
+  set: (value: boolean) => emit("update:showModal", value),
+});
+
+const isDrawer = computed(() => storage.value?.type === 'drawer');
+const selectedDrawerIndex = computed(() => formValue.value.drawers?.findIndex(d => d.id === storageId.value));
+const drawerNameValidation = computed(() => drawerName.value ? '' : 'error');
+
+const drawerName = computed({
+  get: () =>  {
+    if(!formValue.value?.drawers || isNaN(selectedDrawerIndex.value)) return '';
+    else return formValue.value.drawers[selectedDrawerIndex.value]?.name || '';
+  },
+  set(value: string) {
+    if (isDrawer.value) {
+      formValue.value.drawers[selectedDrawerIndex.value].name = value;
+    }
+  }
+});
+
+const drawerDesc = computed({
+  get: () =>  {
+    if(!formValue.value?.drawers || isNaN(selectedDrawerIndex.value)) return '';
+    else return formValue.value.drawers[selectedDrawerIndex.value]?.description || '';
+  },  
+  set(value: string) {
+    if (isDrawer.value) {
+      formValue.value.drawers[selectedDrawerIndex.value].description = value;
+    }
+  }
+});
+
+onMounted(() => {
+  updateModalWidth();
+
+  cabinet.value = storage.value?.type === 'drawer' ? storage.value?.parent : storage.value;
+  formValue.value.name = cabinet.value?.name || '';
+  formValue.value.description = cabinet.value?.description || '';
+  formValue.value.material = cabinet.value?.material || 'plastic';
+  formValue.value.drawers = cabinet.value?.drawers || [];
+
+  drawStorage(); //?
+  window.addEventListener("resize", updateModalWidth);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", updateModalWidth);
+});
 
 const updateModalWidth = () => {
   const width = window.innerWidth;
@@ -134,20 +151,8 @@ const updateModalWidth = () => {
 };
 
 const closeModal = (value: boolean = false) => {
-  emit("update:selectedDrawer", drawerId.value);
   show.value = value;
 };
-
-onMounted(() => {
-  updateModalWidth();
-
-  drawStorage();
-  window.addEventListener("resize", updateModalWidth);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("resize", updateModalWidth);
-});
 
 // Update existing storage
 const updateStorage = async (e: MouseEvent) => {
@@ -159,8 +164,16 @@ const updateStorage = async (e: MouseEvent) => {
     }
   });
 
-  const cabinet: IUpdateCabinet = {
-    id: props.storage.id,
+  for(const drawer of formValue.value.drawers as IUpdateDrawer[]) {
+    if(!drawer.name) {
+      message.error("All drawers must have at least a name.");
+      storageId.value = drawer.id;
+      return;
+    }
+  }
+
+  const cab: IUpdateCabinet = {
+    id: cabinet.value?.id as string,
     name: formValue.value.name,
     description: formValue.value.description,
     material: formValue.value.material,
@@ -168,7 +181,7 @@ const updateStorage = async (e: MouseEvent) => {
   };
 
   try {
-    await storageService.updateStorageCabinet(cabinet);
+    await storageStore.updateStorageCabinet(cab);
     message.success('Cabinet updated successfully.');
     closeModal();
 
@@ -179,14 +192,20 @@ const updateStorage = async (e: MouseEvent) => {
 
 const drawStorage = async () => {
   await nextTick();
-  const cabinet: IDrawCabinet = {
+  const cab: IDrawCabinet = {
     material: formValue.value.material,
-    x_units: props.storage.x_units,
-    y_units: props.storage.y_units,
-    drawers: props.storage.drawers
+    x_units: cabinet.value?.x_units as number,
+    y_units: cabinet.value?.y_units as number,
+    drawers: cabinet.value?.drawers as IDrawDrawer[]
   };
-  canvasCabinetRef.value?.draw(cabinet);
+  canvasCabinetRef.value?.draw(cab);
 };
+
+watch(storage.pending, async (pending) => {
+  if (!pending && storage.value) {
+    drawStorage();
+  }
+})
 </script>
 
 <style scoped lang="sass">

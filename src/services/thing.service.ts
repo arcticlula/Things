@@ -4,10 +4,10 @@ import { ref } from 'vue';
 import { db } from '../firebase';
 import { ICreateThing, IDBCreateThing, IDBUpdateThing, IUpdateThing } from '../models/thing.model';
 import { calculateT9 } from './misc.service';
+
 import storageService from './storage.service';
 import tagService from './tag.service';
 
-// Firestore collections
 const thingsColRef = collection(db, 'things');
 
 const thingQuery = ref();
@@ -26,7 +26,7 @@ const searchThings = async(value: string) => {
   }
 };
 
-const getThingById = async(id: string) => {
+const selectThingById = async(id: string) => {
   thingQuery.value = doc(thingsColRef, id); 
 };
 
@@ -101,7 +101,7 @@ export default {
   thingsColRef,
   thingQuery,
   thingsQuery,
-  getThingById,
+  selectThingById,
   getThing,
   searchThings,
   createThing,

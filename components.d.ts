@@ -7,6 +7,7 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
+    Breadcrumb: typeof import('./src/components/Misc/breadcrumb.vue')['default']
     CanvasBox: typeof import('./src/components/Canvas/CanvasBox.vue')['default']
     CanvasCabinet: typeof import('./src/components/Canvas/CanvasCabinet.vue')['default']
     CreateStorageModal: typeof import('./src/components/Storage/Modal/CreateStorageModal.vue')['default']
@@ -43,6 +44,7 @@ declare module 'vue' {
     NText: typeof import('naive-ui')['NText']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    StorageBreadcrumb: typeof import('./src/components/Storage/StorageBreadcrumb.vue')['default']
     StorageDescription: typeof import('./src/components/Storage/StorageDescription.vue')['default']
     StorageList: typeof import('./src/components/Storage/StorageList.vue')['default']
     ThingDescription: typeof import('./src/components/Thing/ThingDescription.vue')['default']
