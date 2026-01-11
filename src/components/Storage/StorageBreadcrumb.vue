@@ -1,31 +1,47 @@
 <template>
-    <n-breadcrumb separator=">">
-        <n-breadcrumb-item v-for="bc in breadcrumbs" :key="bc.id" :class="{'breadcrumb-selected': (bc.id === storageId)}" @click="goToStorage(bc.id)" clickable>
-        {{ bc.name }}
-        </n-breadcrumb-item>
-    </n-breadcrumb>
+  <n-breadcrumb separator=">" v-if="storageId">
+    <n-breadcrumb-item v-for="bc in breadcrumbs" :key="bc.id" :class="{'breadcrumb-selected': (bc.id === storageId)}" @click="goToStorage(bc.id)" :clickable="!readonly">
+      {{ bc.name }}
+    </n-breadcrumb-item>
+  </n-breadcrumb>
+  <span class="breadcrumb-no-storage" v-else>No Storage Assigned</span>
 </template>
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { IStorage } from '../../models/storage.model';
 import { useStorageStore } from '../../stores/storage';
 
+const props = defineProps<{
+    readonly?: boolean;
+    id?: string;
+}>();
+
 const storageStore = useStorageStore();
-const { storageId, storagesAll } = storeToRefs(storageStore);
+const { storageId: stgId, storagesAll } = storeToRefs(storageStore);
 
 const breadcrumbs = ref([] as { id: string; name: string }[]);
 
-const buildPathToStorage = (storageId: string, storages: IStorage[]) => {
-  const storageMap = new Map<string, IStorage>();
-  storages.forEach(storage => storageMap.set(storage.id, storage));
+const storageId = computed({
+  get() {
+    return props.id || stgId.value;
+  },
+  set(newValue) {
+    stgId.value = newValue;
+  }
+})
 
+
+const buildPathToStorage = (storageId: string | null, storages: IStorage[]) => {
+  if (!storageId) return [];
+  const storageMap = new Map<string | null, IStorage>();
+  storages.forEach(storage => storageMap.set(storage.id, storage));
   const path: { id: string; name: string }[] = [];
 
   // Function to build the path from the given storage/drawer back to the root
-  const buildPath = (currentId: string) => {
+  const buildPath = (currentId: string | null) => {
     const storage = storageMap.get(currentId);
     if (!storage) return; // Stop if no storage is found (invalid ID or no parent)
 
@@ -67,17 +83,27 @@ const buildPathToStorage = (storageId: string, storages: IStorage[]) => {
 };
 
 const goToStorage = (id: string) => {
+  if (props.readonly) return;
   storageId.value = id;
 }
 
 const recreatePath = () => {
-  if(breadcrumbs.value.find(s => s.id === storageId.value)) return;
-  if (storagesAll.value) breadcrumbs.value = buildPathToStorage(storageId.value, storagesAll.value as IStorage[]);
+    if(!storageId.value) {
+        breadcrumbs.value = [];
+        return;
+    }
+    // Optimization to avoid recalc if already correct? Removed for safety when storageId changes
+    if (storagesAll.value) breadcrumbs.value = buildPathToStorage(storageId.value, storagesAll.value as IStorage[]);
 }
 
 watch(storageId, () => {
   recreatePath();
 });
+
+watch(storagesAll, () => {
+    recreatePath();
+}, { immediate: true });
+
 
 defineExpose({
   recreatePath
@@ -90,5 +116,13 @@ defineExpose({
 
 .breadcrumb-selected :deep(.n-breadcrumb-item__link)
     color: var(--n-item-text-color-active) !important
+
+.breadcrumb-no-storage
+    display: inline-flex
+    align-items: center
+    box-sizing: border-box
+    padding: 4px
+    color: rgba(255, 255, 255, 0.52)
+    height: 25.5px
 </style>
   

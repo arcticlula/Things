@@ -16,16 +16,17 @@
             <n-select :value="formValue.tags" placeholder="Select or add tags" multiple filterable tag @search="searchTags" @update:value="handleTagUpdate" :options="tagOptions" />
           </n-form-item-gi>
           <n-form-item-gi span="24 m:24" label="Storage" path="storageId">
-            <n-cascader v-model:value="formValue.storageId" placeholder="Add to storage" check-strategy="all" label-field="name" value-field="id" @update:value="handleStorageUpdate" :options="storageOptions" />
+            <n-cascader v-model:value="formValue.storageId" placeholder="Add to storage" check-strategy="all" label-field="name" value-field="id" :options="storageOptions" clearable/>
           </n-form-item-gi>
         </n-grid>
       </n-form>
-      <div class="create-thing-canvas">
-        <div class="create-thing-canvas-empty" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }" v-if="!formValue.storageId">   
+      <div class="create-thing-canvas" :style="{ width: maxCanvasWidth + 'px', height: maxCanvasHeight + 'px' }">
+        <div class="create-thing-canvas-empty" :style="{ width: '400px', height: '400px' }" v-if="!formValue.storageId">   
           <n-empty description="No storage selected" />
         </div> 
-        <CanvasBox v-else-if="storage?.type === 'box'" ref="canvasBoxRef" :c_width="canvasWidth" :c_height="canvasHeight" />
-        <CanvasCabinet v-else-if="storage?.type !== 'box'" ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" canSelect />    
+        <CanvasBox v-else-if="previewStorage?.type === 'box'" :c_width="canvasWidth" :c_height="canvasHeight" :storage="previewStorage" />
+        <CanvasCabinet v-else-if="previewStorage?.type === 'cabinet' || previewStorage?.type === 'drawer'" :c_width="canvasWidth" :c_height="canvasHeight" :storage="hydratedCabinet" :selectedId="selectedDrawerId" canSelect @selected="handleSelected" />    
+        <CanvasOrganizer v-else-if="previewStorage?.type === 'organizer' || previewStorage?.type === 'slot'" :c_width="canvasWidth" :c_height="canvasHeight" :storage="hydratedOrganizer" :selectedId="selectedSlotId" canSelect @selected="handleSelected" />    
       </div>
     </div>
     <n-space justify="end" :style="{ width: '100%', 'margin-top': '16px' }">
@@ -50,9 +51,12 @@ import { useStorageStore } from '../../../stores/storage';
 import { useTagStore } from '../../../stores/tag';
 import { useThingStore } from '../../../stores/thing';
 
+import { hydrateCabinet, getSelectedDrawerId, hydrateOrganizer, getSelectedSlotId } from '../../../utils/storage.utils';
+
 import CanvasBox from '../../Canvas/CanvasBox.vue';
 import CanvasCabinet from '../../Canvas/CanvasCabinet.vue';
-
+import CanvasOrganizer from '../../Canvas/CanvasOrganizer.vue';
+import { calculateCanvasDimensions } from '../../../utils/canvas.utils';
 
 const props = defineProps<{
   showModal: boolean;
@@ -66,7 +70,7 @@ const thingStore = useThingStore();
 const storageStore = useStorageStore();
 const tagStore = useTagStore();
 
-const { storageId, storage, storagesAll } = storeToRefs(storageStore);
+const { storagesAll } = storeToRefs(storageStore);
 const { tags } = storeToRefs(tagStore);
 
 const message = useMessage();
@@ -75,11 +79,13 @@ const modalWidth = ref('90%');
 
 const inputNameRef = ref<InputInst | null>(null)
 
-const canvasBoxRef = ref<InstanceType<typeof CanvasBox> | null>(null);
-const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
+const maxCanvasWidth = 500;
+const maxCanvasHeight = 400;
 
-const canvasWidth = 300;
-const canvasHeight = 330;
+const canvasDimensions = computed(() => calculateCanvasDimensions(previewStorage.value, maxCanvasWidth, maxCanvasHeight));
+
+const canvasWidth = computed(() => canvasDimensions.value.width);
+const canvasHeight = computed(() => canvasDimensions.value.height);;
 
 const formRef = ref<FormInst | null>(null)
 
@@ -101,11 +107,6 @@ const formRules = {
     required: true,
     type: 'number',
     message: 'No value',
-    trigger: ['input', 'blur']
-  },
-  storageId: {
-    required: true,
-    message: 'Please add the thing to a storage',
     trigger: ['input', 'blur']
   }
 }
@@ -131,6 +132,17 @@ const tagOptions = computed(() => {
 });
 
 const storageOptions = computed(() => buildNestedStorage(storagesAll.value as (IStorage)[]));
+
+const previewStorage = computed(() => {
+  if (!formValue.value.storageId) return null;
+  return (storagesAll.value as IStorage[]).find(s => s.id === formValue.value.storageId) || null;
+});
+
+const hydratedCabinet = computed(() => hydrateCabinet(previewStorage.value, storagesAll.value as IStorage[]));
+const hydratedOrganizer = computed(() => hydrateOrganizer(previewStorage.value, storagesAll.value as IStorage[]));
+
+const selectedDrawerId = computed(() => getSelectedDrawerId(previewStorage.value));
+const selectedSlotId = computed(() => getSelectedSlotId(previewStorage.value));
 
 onMounted(() => {
   updateModalWidth()
@@ -161,9 +173,9 @@ const buildNestedStorage = (storages: (IStorage)[], parentId: string | undefined
 const updateModalWidth = () => {
   const width = window.innerWidth;
   if (width > 1200) {
-    modalWidth.value = '60%';
+    modalWidth.value = '75%';
   } else if (width > 768) {
-    modalWidth.value = '70%';
+    modalWidth.value = '85%';
   } else {
     modalWidth.value = '90%';
   }
@@ -200,21 +212,8 @@ const handleTagUpdate = (_tagsValue: string[], tags: ILocalTag[]) => {
   selectedTags.value = [...tags];
 };
 
-const handleStorageUpdate = async (id: string) => {
-  storageId.value = 'xixi';
-  storageId.value = id;
-};
-
-watch(storage.pending, async (pending) => {
-  if (!pending && storage.value) {
-    formValue.value.storageId = storage.value.id;
-    drawStorage();
-  }
-});
-
-const drawStorage = async () => {
-  canvasCabinetRef.value?.draw();
-  canvasBoxRef.value?.draw();
+const handleSelected = (id: string) => {
+  formValue.value.storageId = id;
 };
 
 const createTagLocal = (tag: ILocalTag) => {
@@ -235,13 +234,17 @@ const createThing = async (e: MouseEvent, stayOpen = false) => {
   const storageId = formValue.value.storageId;
   const storageType = storagesAll.value.find(s => s.id === storageId)?.type;
 
-  if(!storageId) return;
-
-  if(storageType === "cabinet") {
-    message.error('Please select a drawer.');
-    return;
+  if(storageId) {
+    if(storageType === "cabinet") {
+      message.error('Please select a drawer.');
+      return;
+    }
+    else if(storageType === "organizer") {
+      message.error('Please select a slot.');
+      return;
+    }
   }
-  
+
   const thing: ICreateThing = {
     name: formValue.value.name,
     stock: formValue.value.stock,
@@ -270,6 +273,7 @@ const closeModal = (value: boolean = false) => {
 
 const clearModal = () => {
   formValue.value.name = ''
+  formValue.value.stock = 1
   formValue.value.description = ''
   formValue.value.tags = []
 
@@ -290,23 +294,20 @@ watch(tags, (newTags) => {
 
 <style scoped lang="sass">
 .create-thing
-  display: flex
-  flex-direction: row
-  width: 100%
-
-.create-thing-form
-  margin: 0 8px
-  width: 100%
+  display: grid
+  grid-template-columns: 1fr auto
+  gap: 32px
+  margin-bottom: 48px
 
 .create-thing-canvas
   display: flex
   justify-content: center
+  align-items: center
   align-self: center
-  background-color: rgba(255, 255, 255, 0.05)
-  margin: 8px
 
 .create-thing-canvas-empty
   display: flex
   justify-content: center
   align-items: center
+  background-color: rgba(255, 255, 255, 0.05)
 </style>

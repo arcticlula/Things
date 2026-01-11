@@ -9,11 +9,14 @@
           <n-form-item-gi span="24 m:24" label="Description" path="description">
             <n-input v-model:value="formValue.description" type="textarea" placeholder="Enter description..." />
           </n-form-item-gi>
-          <n-form-item-gi span="9" label="Material" path="material" >
-            <n-select v-model:value="formValue.material" placeholder="Select material of storage" :options="materialOptions" @update:value="drawStorage" />
-          </n-form-item-gi>
-          <n-form-item-gi span="14" offset="1" label="Does it have a papa?" path="parent">
+          <n-form-item-gi span="24" label="Does it have a papa?" path="parent">
             <n-select v-model:value="formValue.parent" placeholder="Does it have a papa?" filterable clearable :options="storageOptions" />
+          </n-form-item-gi>
+          <n-form-item-gi span="9" label="Material" path="material" >
+            <n-select v-model:value="formValue.material" placeholder="Select material of storage" :options="materialOptions" @update:value="handleMaterialChange" />
+          </n-form-item-gi>
+          <n-form-item-gi span="14" offset="1" label="Color">
+            <n-color-picker v-model:value="formValue.color" :show-alpha="false" @update:value="drawStorage" :modes="['hex']" />
           </n-form-item-gi>
           <n-form-item-gi span="6" label="Width" >
             <n-input-number v-model:value="formValue.x_units" min="1" @update:value="drawStorage" />
@@ -30,7 +33,7 @@
         </n-grid>
       </n-form>
       <div class="update-storage-canvas" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }">
-        <CanvasBox ref="canvasBoxRef" :c_width="canvasWidth" :c_height="canvasHeight"/>
+        <CanvasBox ref="canvasBoxRef" :c_width="canvasWidth" :c_height="canvasHeight" :storage="storage" />
       </div>
     </div>
     <n-space justify="end" :style="{ width: '100%', 'margin-top': '16px' }">
@@ -67,8 +70,8 @@ const { storage } = storeToRefs(storageStore);
 
 const modalWidth = ref("90%");
 
-const canvasWidth = 350;
-const canvasHeight = 380;
+const canvasWidth = 400;
+const canvasHeight = 400;
 
 const materialOptions = [
   { label: "Plastic", value: "plastic" },
@@ -86,6 +89,7 @@ const formValue = ref<IUpdateBoxForm>({
   parent: storage.value?.parent?.id || '',
   depth: storage.value?.depth,
   boxLid: storage.value?.lid,
+  color: storage.value?.color || (storage.value?.material === 'cardboard' ? '#755C43' : '#A0D0FF'),
 });
 
 const formRules = {
@@ -140,9 +144,9 @@ const buildLabel = (storage: IBox): string => {
 const updateModalWidth = () => {
   const width = window.innerWidth;
   if (width > 1200) {
-    modalWidth.value = "65vw";
+    modalWidth.value = "75%";
   } else if (width > 768) {
-    modalWidth.value = "80vw";
+    modalWidth.value = "85%";
   } else {
     modalWidth.value = "90%";
   }
@@ -171,6 +175,7 @@ const updateStorage = async (e: MouseEvent) => {
     y_units: formValue.value.y_units,
     depth: formValue.value.depth,
     lid: formValue.value.boxLid,
+    color: formValue.value.color,
     parentId: formValue.value.parent,
     oldParentId: storage.value?.parent?.id
   };
@@ -185,6 +190,15 @@ const updateStorage = async (e: MouseEvent) => {
   }
 };
 
+const handleMaterialChange = (material: string) => {
+  if (material === 'cardboard') {
+    formValue.value.color = '#755C43';
+  } else if (material === 'plastic') {
+    formValue.value.color = '#A0D0FF';
+  }
+  drawStorage();
+};
+
 const drawStorage = async () => {
   await nextTick();
   const box: IDrawBox = {
@@ -193,27 +207,24 @@ const drawStorage = async () => {
     y_units: formValue.value.y_units,
     depth: formValue.value.depth,
     lid: formValue.value.boxLid,
+    color: formValue.value.color,
   };
-
   canvasBoxRef.value?.draw(box);
 };
 </script>
 
 <style scoped lang="sass">
 .update-storage
-  display: flex
-  flex-direction: row
-  width: 100%
-
-.update-storage-form
-  margin: 0 8px
-  width: 100%
+  display: grid
+  grid-template-columns: 1fr auto
+  gap: 32px
 
 .update-storage-canvas
   display: flex
   justify-content: center
-  height: fit-content
   align-self: center
-  margin: 0 8px
-  min-width: 350px
+  align-items: center
+  margin-left: 16px
+  flex-shrink: 0
+
 </style>

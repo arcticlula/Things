@@ -21,14 +21,14 @@
           </n-button>
         </div>
       </n-descriptions-item>
-        <n-descriptions-item v-if="storage?.things?.length > 0">
-          <template #label><n-text type="warning">Things</n-text></template>
-          <div class="storage-background">
-            <n-button class="things-list-button" v-for="thing in storage?.things" :key="thing.id" strong secondary type="info" size="tiny" @click="openThingModal(thing.id)">
-              {{ thing.name }}
-            </n-button>
-          </div>
-        </n-descriptions-item>
+      <n-descriptions-item v-if="storage?.things?.length > 0">
+        <template #label><n-text type="warning">Things</n-text></template>
+        <div class="storage-background">
+          <n-button class="things-list-button" v-for="thing in storage?.things" :key="thing.id" strong secondary type="info" size="tiny" @click="openThingModal(thing.id)">
+            {{ thing.name }}
+          </n-button>
+        </div>
+      </n-descriptions-item>
     </n-descriptions>
   <ThingModal v-if="showThingModal" v-model:showModal="showThingModal"></ThingModal>
 </template>

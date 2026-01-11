@@ -1,6 +1,6 @@
 import { DocumentData, DocumentReference } from "firebase/firestore"
 import { IContainer } from "./storage.model"
-import { ILocalTag, ITag } from "./tag.model"
+import { IDBTag, ILocalTag, ITag } from "./tag.model"
 
 // Form
 export interface IThingForm {
@@ -8,7 +8,7 @@ export interface IThingForm {
     stock: number
     description: string
     tags: string[]
-    storageId: string
+    storageId?: string | null
 }
 
 // Thing Interface
@@ -19,7 +19,7 @@ export interface IThing {
     name_lower: string
     name_number: string
     description: string
-    storage: IContainer
+    storage?: IContainer | null
     tags?: ITag[]
 }
 
@@ -27,29 +27,30 @@ interface ILocalThing {
     name: string
     stock: number
     description: string
-    storage: string
+    storage?: string | null
     tags: ILocalTag[]
     createdTags: ILocalTag[]
 }
 
 // Create Local Thing
-export interface ICreateThing extends ILocalThing {}
+export interface ICreateThing extends ILocalThing { }
 
 // Update Local Thing
 export interface IUpdateThing extends ILocalThing {
     id: string
     removedTags: ILocalTag[]
-    oldStorage: string 
+    oldStorage?: string | null
 }
 
-interface IDBThing {
+export interface IDBThing {
+    id?: string,
     name: string
     name_lower: string
     name_number: string
     description: string
     stock: number
-    storage: DocumentReference<DocumentData, DocumentData>
-    tags?: DocumentReference<DocumentData, DocumentData>[]
+    storage?: DocumentReference<DocumentData, DocumentData> | null
+    tags?: IDBTag[]
 }
 
 // Create DB Thing

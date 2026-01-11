@@ -3,7 +3,7 @@
   v-model:checked-row-keys="checkedRowKeys"
   :row-key="rowKey"
   :columns="columns"
-  :data="containers"
+  :data="sortedContainers"
   :expanded-row-keys="expandedKeys"
   @update:expanded-row-keys="onExpandedChange"
   max-height="65vh" 
@@ -15,14 +15,40 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { onMounted, ref, watch, computed } from 'vue';
 import { storeToRefs } from 'pinia';
 
 import { IStorage } from '../../models/storage.model';
 import { useStorageStore } from '../../stores/storage';
 
 const storageStore = useStorageStore();
-const { storageId, storage, containers } = storeToRefs(storageStore);
+const { storageId, storage, storagePending, containers, storagesAll } = storeToRefs(storageStore);
+
+const sortedContainers = computed(() => {
+  if (!storagesAll.value) return [];
+
+  return containers.value.map(container => {
+    const children = storagesAll.value.filter(s => {
+       if (!s.parent) return false;
+       return s.parent.id === container.id;
+    });
+
+    // Sort children
+    children.sort((a, b) => {
+       // Primary: y_pos (Row)
+       const yDiff = (a.y_pos || 0) - (b.y_pos || 0);
+       if (yDiff !== 0) return yDiff;
+       // Secondary: x_pos (Col)
+       return (a.x_pos || 0) - (b.x_pos || 0);
+    });
+
+    return {
+      id: container.id,
+      ...container,
+      drawers: children
+    };
+  });
+});
 
 const columns = [
   {
@@ -66,8 +92,8 @@ const handleSelection = (ids: string[]) => {
   storageId.value = ids[0];
 }
 
-const setRowChecked = (id: string) => {
-  checkedRowKeys.value = [id] as string[];
+const setRowChecked = (id: string | null) => {
+  checkedRowKeys.value = [id || ''] as string[];
 }
 
 const selectStorage = (id: string) => {
@@ -79,9 +105,9 @@ watch(storageId, async () => {
   setRowChecked(storageId.value)
 });
 
-watch(storage.pending, async (pending) => {
+watch(storagePending, async (pending) => {
   if(!pending && storage.value) {
-    if(storage.value?.type === 'drawer') {
+    if(storage.value?.type === 'drawer' || storage.value?.type === 'slot') {
       const parentKey = storage.value.parent.id;
 
       if (!expandedKeys.value.includes(parentKey)) {
@@ -91,11 +117,13 @@ watch(storage.pending, async (pending) => {
   }
 });
 
-watch(containers.pending, async (pending) => {
-  if(!pending && containers.value.length > 0) {
-    selectStorage(containers.value[0].id);
+watch(containers, async (newContainers) => {
+  if(newContainers && newContainers.length > 0) {
+     if (!storageId.value) {
+        selectStorage(newContainers[0].id);
+     }
   }
-});
+}, { immediate: true });
 </script>
 
 <style scoped lang="sass">

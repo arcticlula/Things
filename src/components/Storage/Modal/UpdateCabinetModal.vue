@@ -3,11 +3,16 @@
     <div class="update-storage">
       <n-form class="update-storage-form" ref="formRef" :model="formValue" :rules="formRules" size="small">
         <n-grid cols="24" item-responsive responsive="screen">
-          <n-form-item-gi span="15" label="Name" path="name">
+          <n-form-item-gi span="24" label="Name" path="name">
             <n-input v-model:value="formValue.name" type="text" placeholder="Enter name..." clearable/>
           </n-form-item-gi>
-          <n-form-item-gi span="8" offset="1" label="Material" path="material" >
+          <n-form-item-gi span="15" label="Material" path="material" >
             <n-select v-model:value="formValue.material" placeholder="Select material of storage" :options="materialOptions" @update:value="drawStorage" />
+          </n-form-item-gi>
+          <n-form-item-gi span="8" offset="1" label="Drawer Ratio">
+            <n-input-number v-model:value="formValue.ratio" min="0.1" max="5" step="0.1" @update:value="drawStorage">
+              <template #suffix>w/h</template>
+            </n-input-number>
           </n-form-item-gi>
           <n-form-item-gi span="24 m:24" label="Description" path="description">
             <n-input v-model:value="formValue.description" type="textarea" placeholder="Enter description..." clearable/>
@@ -23,8 +28,8 @@
           </n-form-item-gi>
         </n-grid>
       </n-form>
-      <div class="update-storage-canvas" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }">
-        <CanvasCabinet ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" canSelect/>
+      <div class="update-storage-canvas" :style="{ width: maxCanvasWidth + 'px', height: maxCanvasHeight + 'px' }">
+        <CanvasCabinet ref="canvasCabinetRef" :c_width="canvasWidth" :c_height="canvasHeight" canSelect :selectedId="selectedDrawerId" @selected="handleSelected"/>
       </div>
     </div>
     <n-space justify="end" :style="{ width: '100%', 'margin-top': '16px' }">
@@ -43,6 +48,7 @@ import { storeToRefs } from 'pinia';
 import { useStorageStore } from '../../../stores/storage';
 import { IUpdateCabinetForm, IDrawCabinet, IUpdateCabinet, ICabinetMaterial, ICabinet, IDrawDrawer, IUpdateDrawer } from "../../../models/storage.model";
 import CanvasCabinet from "../../Canvas/CanvasCabinet.vue";
+import { calculateCanvasDimensions } from "../../../utils/canvas.utils";
 
 const props = defineProps<{
   showModal: boolean;
@@ -57,14 +63,30 @@ const canvasCabinetRef = ref<InstanceType<typeof CanvasCabinet> | null>(null);
 const message = useMessage();
 
 const storageStore = useStorageStore();
-const { storage, storageId } = storeToRefs(storageStore);
+const { storage, storagePending } = storeToRefs(storageStore);
 
 const cabinet = ref<ICabinet>();
+const storageId = ref<string | null>(null);
 
 const modalWidth = ref("90%");
 
-const canvasWidth = 300;
-const canvasHeight = 350;
+const maxCanvasWidth = 400;
+const maxCanvasHeight = 500;
+
+const previewStorage = computed(() => {
+  if (!cabinet.value) return null;
+  return {
+    ...cabinet.value,
+    ratio: formValue.value.ratio,
+    material: formValue.value.material,
+    drawers: formValue.value.drawers,
+  };
+});
+
+const canvasDimensions = computed(() => calculateCanvasDimensions(previewStorage.value, maxCanvasWidth, maxCanvasHeight));
+
+const canvasWidth = computed(() => canvasDimensions.value.width);
+const canvasHeight = computed(() => canvasDimensions.value.height);
 
 const materialOptions = [
   { label: "Plastic", value: "plastic" },
@@ -72,12 +94,20 @@ const materialOptions = [
   { label: "Metal", value: "metal" }
 ];
 
+const selectedDrawerId = computed(() => {
+  if (formValue.value.drawers?.some(d => d.id === storageId.value)) {
+    return storageId.value;
+  }
+  return null;
+});
+
 const formRef = ref<FormInst | null>(null);
 
 const formValue = ref<IUpdateCabinetForm>({
   name: '',
   description: '',
   material: '' as ICabinetMaterial,
+  ratio: 1.0,
   drawers: []
 });
 
@@ -94,7 +124,7 @@ const show = computed({
   set: (value: boolean) => emit("update:showModal", value),
 });
 
-const isDrawer = computed(() => storage.value?.type === 'drawer');
+const isDrawer = computed(() => previewStorage.value?.drawers?.some(d => d.id === storageId.value));
 const selectedDrawerIndex = computed(() => formValue.value.drawers?.findIndex(d => d.id === storageId.value));
 const drawerNameValidation = computed(() => drawerName.value ? '' : 'error');
 
@@ -122,16 +152,24 @@ const drawerDesc = computed({
   }
 });
 
+watch(storagePending, async (pending) => {
+  if (!pending && storage.value) {
+    drawStorage();
+  }
+});
+
 onMounted(() => {
   updateModalWidth();
 
+  storageId.value = storage.value?.id;
   cabinet.value = storage.value?.type === 'drawer' ? storage.value?.parent : storage.value;
   formValue.value.name = cabinet.value?.name || '';
   formValue.value.description = cabinet.value?.description || '';
   formValue.value.material = cabinet.value?.material || 'plastic';
+  formValue.value.ratio = cabinet.value?.ratio || 1.0;
   formValue.value.drawers = cabinet.value?.drawers || [];
 
-  drawStorage(); //?
+  drawStorage();
   window.addEventListener("resize", updateModalWidth);
 });
 
@@ -139,14 +177,19 @@ onBeforeUnmount(() => {
   window.removeEventListener("resize", updateModalWidth);
 });
 
+const handleSelected = (id: string) => {
+  storageId.value = id;
+  drawStorage();
+};
+
 const updateModalWidth = () => {
   const width = window.innerWidth;
   if (width > 1200) {
-    modalWidth.value = "65vw";
+    modalWidth.value = "85vw";
   } else if (width > 768) {
-    modalWidth.value = "80vw";
+    modalWidth.value = "90vw";
   } else {
-    modalWidth.value = "90%";
+    modalWidth.value = "95%";
   }
 };
 
@@ -177,6 +220,7 @@ const updateStorage = async (e: MouseEvent) => {
     name: formValue.value.name,
     description: formValue.value.description,
     material: formValue.value.material,
+    ratio: formValue.value.ratio,
     drawers: formValue.value.drawers
   };
 
@@ -192,37 +236,31 @@ const updateStorage = async (e: MouseEvent) => {
 
 const drawStorage = async () => {
   await nextTick();
+
   const cab: IDrawCabinet = {
     material: formValue.value.material,
+    ratio: formValue.value.ratio,
     x_units: cabinet.value?.x_units as number,
     y_units: cabinet.value?.y_units as number,
     drawers: cabinet.value?.drawers as IDrawDrawer[]
   };
+
   canvasCabinetRef.value?.draw(cab);
 };
-
-watch(storage.pending, async (pending) => {
-  if (!pending && storage.value) {
-    drawStorage();
-  }
-})
 </script>
 
 <style scoped lang="sass">
 .update-storage
-  display: flex
-  flex-direction: row
-  width: 100%
-
-.update-storage-form
-  margin: 0 8px
-  width: 100%
+  display: grid
+  grid-template-columns: 1fr auto
+  gap: 32px
+  margin-bottom: 48px
 
 .update-storage-canvas
   display: flex
   justify-content: center
-  height: fit-content
   align-self: center
-  margin: 0 8px
-  min-width: 350px
+  align-items: center
+  margin-left: 16px
+  flex-shrink: 0
 </style>

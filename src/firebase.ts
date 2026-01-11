@@ -1,18 +1,19 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBkxcpfCDMatzBp4rZV8UInG37u-3fqguE",
-    authDomain: "things-storage.firebaseapp.com",
-    projectId: "things-storage",
-    storageBucket: "things-storage.appspot.com",
-    messagingSenderId: "447316691649",
-    appId: "1:447316691649:web:a6c70933d4a46b8f216240"
-  };
-  
-// Initialize Firebase
+  apiKey: "AIzaSyBkxcpfCDMatzBp4rZV8UInG37u-3fqguE",
+  authDomain: "things-storage.firebaseapp.com",
+  projectId: "things-storage",
+  storageBucket: "things-storage.appspot.com",
+  messagingSenderId: "447316691649",
+  appId: "1:447316691649:web:a6c70933d4a46b8f216240"
+};
+
 const firebaseApp = initializeApp(firebaseConfig);
 
 const db = getFirestore(firebaseApp);
+const auth = getAuth(firebaseApp);
 
-export { firebaseApp, db };
+export { firebaseApp, db, auth };

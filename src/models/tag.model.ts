@@ -7,6 +7,7 @@ export interface ILocalTag {
 }
 
 export interface IDBTag {
+    id?: string,
     name: string,
     name_lower: string,
     name_number: string,
